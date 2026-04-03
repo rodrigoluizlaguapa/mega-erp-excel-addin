@@ -1,11 +1,12 @@
-body { margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
+body { margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; background-color: #f3f2f1; }
 #container { padding: 15px; }
-.header { border-bottom: 2px solid #0078d4; padding-bottom: 15px; margin-bottom: 15px; }
-h3 { margin-top: 0; margin-bottom: 5px; color: #333; }
-button { background: #0078d4; color: white; border: none; padding: 12px; width: 100%; cursor: pointer; font-weight: bold; border-radius: 4px; transition: background 0.2s; }
+.header { background: white; padding: 15px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 10px; }
+h3 { margin: 0 0 5px 0; color: #0078d4; }
+.form-group { margin-bottom: 12px; }
+label { display: block; font-size: 12px; font-weight: bold; margin-bottom: 4px; color: #333; }
+select, input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+button { background: #0078d4; color: white; border: none; padding: 12px; width: 100%; cursor: pointer; font-weight: bold; border-radius: 4px; margin-top: 5px; }
 button:hover { background: #005a9e; }
-#detail-pane { background: #f9f9f9; padding: 12px; margin-top: 20px; border: 1px solid #ddd; font-size: 13px; border-radius: 4px; }
-#detail-pane h4 { margin-top: 0; color: #0078d4; }
-#status { margin-top: 15px; font-size: 12px; color: #444; font-weight: bold; }
-.item-line { border-bottom: 1px solid #eee; padding: 10px 0; }
-.item-line:last-child { border-bottom: none; }
+#status { font-size: 11px; padding: 10px; color: #666; text-align: center; }
+#detail-pane { background: #fff; padding: 12px; margin-top: 15px; border: 1px solid #0078d4; border-radius: 4px; font-size: 12px; }
+.item-line { border-bottom: 1px solid #eee; padding: 8px 0; }
