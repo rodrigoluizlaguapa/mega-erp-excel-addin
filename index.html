@@ -62,7 +62,6 @@
     </div>
 
     <script>
-        // Lógica de visualização das abas
         function switchTab(id, el) {
             $('.content').removeClass('active');
             $('.tab').removeClass('active');
@@ -70,7 +69,6 @@
             $(el).addClass('active');
         }
 
-        // --- CÓDIGO DO MOTOR (TUDO AQUI DENTRO AGORA) ---
         const GOOGLE_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbx6QhNdtZo9U1p-rsRhXvBPWkv58NHItnajCU3OQKFcRKfiiYxGdjPj5P7dZsa9cww9/exec";
 
         Office.onReady((info) => {
@@ -90,7 +88,10 @@
             const dataInicio = $("#data-inicio").val();
             const dataFim = $("#data-fim").val();
 
-            const res = await fetch(`${GOOGLE_WEBAPP_URL}?action=${modulo}&inicio=${dataInicio}&fim=${dataFim}`);
+            // O TRUQUE MÁGICO: Colocamos a data exata do clique no link para o Excel NUNCA usar cache
+            const urlSemCache = `${GOOGLE_WEBAPP_URL}?action=${modulo}&inicio=${dataInicio}&fim=${dataFim}&nocache=${new Date().getTime()}`;
+            
+            const res = await fetch(urlSemCache);
             const rawText = await res.text();
             
             let result;
@@ -101,14 +102,29 @@
                 return;
             }
 
+            // O CAÇADOR DE DADOS: Não importa como o Mega/Google mande, nós achamos a lista!
             let arrayDeDados = [];
-            if (Array.isArray(result)) arrayDeDados = result;
-            else if (result && result.data && Array.isArray(result.data)) arrayDeDados = result.data;
-            else if (result && typeof result === 'object') arrayDeDados = [result]; 
+            let payload = result.data !== undefined ? result.data : result;
 
+            if (Array.isArray(payload)) {
+                arrayDeDados = payload;
+            } else if (payload && typeof payload === 'object') {
+                if (Array.isArray(payload.items)) arrayDeDados = payload.items;
+                else if (Array.isArray(payload.Items)) arrayDeDados = payload.Items;
+                else {
+                    // Caça qualquer lista escondida dentro do pacote
+                    for (let key in payload) {
+                        if (Array.isArray(payload[key])) {
+                            arrayDeDados = payload[key];
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // Se não tiver NENHUMA lista, ele cospe o pacote inteiro na tela pra gente ver onde a lista tá escondida
             if (arrayDeDados.length === 0) {
-              $("#status").text("Consulta concluída, mas não há dados no período.");
-              return;
+                 arrayDeDados = [{"RAIO_X_DO_MEGA": JSON.stringify(payload).substring(0, 5000)}];
             }
 
             await Excel.run(async (context) => {
@@ -132,6 +148,7 @@
                 headers.forEach(h => {
                     let valor = item[h];
                     if(valor === null || valor === undefined) valor = "";
+                    if(typeof valor === 'object') valor = JSON.stringify(valor);
                     linha.push(valor);
                 });
                 dadosParaExcel.push(linha);
@@ -149,9 +166,9 @@
               await context.sync();
             });
 
-            $("#status").text(`Sucesso! ${arrayDeDados.length} linhas baixadas.`);
+            $("#status").text(`Sucesso! ${arrayDeDados.length} linhas processadas.`);
           } catch (error) {
-            $("#status").text("Erro de conexão ao baixar os dados.");
+            $("#status").text("Erro ao baixar os dados.");
           }
         }
 
