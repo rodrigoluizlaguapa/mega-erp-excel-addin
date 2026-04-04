@@ -108,3 +108,7 @@ async function syncData() {
   const responseData = await res.json();
   // ... lógica de inserção na planilha conforme necessário
 }
+
+// Adicione no final do taskpane.js
+window.gerarTemplateAgentes = gerarTemplateAgentes;
+window.processarInclusoesAgentes = processarInclusoesAgentes;
