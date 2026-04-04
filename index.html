@@ -5,46 +5,41 @@
     <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>LG CFO - Mega ERP</title>
-
     <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
     <script type="text/javascript" src="https://ajax.aspnetcdn.com/ajax/jQuery/jquery-3.6.0.min.js"></script>
-    
     <link rel="stylesheet" href="taskpane.css" />
     <script type="text/javascript" src="taskpane.js"></script>
+    
+    <script type="text/javascript">
+        // Registra as funções para a Ribbon encontrar
+        Office.onReady(() => {
+            Office.actions.associate("gerarTemplateAgentes", gerarTemplateAgentes);
+            Office.actions.associate("processarInclusoesAgentes", processarInclusoesAgentes);
+        });
+    </script>
 </head>
 <body>
     <div id="container">
       <div class="header">
         <h3>LG CFO - Mega ERP</h3>
-        <p style="font-size: 11px; color: #666;">Painel de Controle</p>
-        
         <div class="form-group">
-          <label>O que deseja consultar?</label>
+          <label>Módulo:</label>
           <select id="modulo">
-            <option value="list">Razão Contábil (Lançamentos)</option>
-            <option value="agentes">Lista de Agentes (Clientes/Fornecedores)</option>
+            <option value="list">Razão Contábil</option>
+            <option value="agentes">Agentes (Consulta)</option>
           </select>
         </div>
-
         <div id="filtros-data">
-          <div class="form-group">
-            <label>Data Início:</label>
-            <input type="date" id="data-inicio" value="2026-03-01">
-          </div>
-          <div class="form-group">
-            <label>Data Fim:</label>
-            <input type="date" id="data-fim" value="2026-03-31">
-          </div>
+          <div class="form-group"><label>Início:</label><input type="date" id="data-inicio" value="2026-03-01"></div>
+          <div class="form-group"><label>Fim:</label><input type="date" id="data-fim" value="2026-03-31"></div>
         </div>
-
-        <button id="btn-sync">Baixar dados para o Excel</button>
+        <button id="btn-sync">Baixar Dados</button>
       </div>
+      <div id="status">Pronto.</div>
       
-      <div id="status">Pronto para iniciar.</div>
-
-      <div id="detail-pane" style="display:none">
-        <h4>Detalhes da Partida</h4>
-        <div id="detail-content">Selecione um ID na coluna A.</div>
+      <div style="margin-top: 20px; font-size: 10px; color: #999; text-align: center; border-top: 1px solid #eee; padding-top: 10px;">
+        Versão do Script: 1.0.2<br>
+        Ambiente: Produção GitHub
       </div>
     </div>
 </body>
