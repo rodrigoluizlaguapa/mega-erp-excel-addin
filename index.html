@@ -2,59 +2,61 @@
 <html>
 <head>
     <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>LG CFO - Mega ERP</title>
+
     <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
     <script type="text/javascript" src="https://ajax.aspnetcdn.com/ajax/jQuery/jquery-3.6.0.min.js"></script>
+    
     <link rel="stylesheet" href="taskpane.css" />
     <script type="text/javascript" src="taskpane.js"></script>
-    <style>
-        .tabs { display: flex; background: #f3f2f1; border-bottom: 1px solid #ccc; }
-        .tab { flex: 1; padding: 10px; text-align: center; cursor: pointer; font-size: 12px; font-weight: bold; color: #666; }
-        .tab.active { background: #fff; color: #0078d4; border-bottom: 2px solid #0078d4; }
-        .content { display: none; padding: 15px; }
-        .content.active { display: block; }
-        .btn-mega { background: #0078d4; color: white; border: none; padding: 12px; width: 100%; cursor: pointer; font-weight: bold; border-radius: 4px; margin-top: 10px; }
-        .btn-template { background: #217346; } /* Verde Excel */
-    </style>
+
+    <script type="text/javascript">
+        // Este é o vínculo que faltava para a Ribbon funcionar
+        Office.onReady((info) => {
+            if (info.host === Office.HostType.Excel) {
+                console.log("LG CFO: Vinculando funções à Ribbon...");
+                Office.actions.associate("gerarTemplateAgentes", gerarTemplateAgentes);
+                Office.actions.associate("processarInclusoesAgentes", processarInclusoesAgentes);
+            }
+        });
+    </script>
 </head>
 <body>
-    <div class="tabs">
-        <div class="tab active" onclick="switchTab('relat', this)">RELATÓRIOS</div>
-        <div class="tab" onclick="switchTab('agnt', this)">AGENTES</div>
-    </div>
-
-    <div id="relat" class="content active">
-        <label style="font-size:12px; font-weight:bold;">Módulo:</label>
-        <select id="modulo" style="width:100%; padding:8px; margin-bottom:10px;">
+    <div id="container">
+      <div class="header">
+        <h3>LG CFO - Mega ERP</h3>
+        <p style="font-size: 11px; color: #666;">Painel de Controle</p>
+        
+        <div class="form-group">
+          <label>Módulo:</label>
+          <select id="modulo">
             <option value="list">Razão Contábil</option>
             <option value="agentes">Lista de Agentes</option>
-        </select>
-        <div style="display:flex; gap:5px;">
-            <div><label style="font-size:11px;">Início:</label><input type="date" id="data-inicio" value="2026-03-01" style="width:100%;"></div>
-            <div><label style="font-size:11px;">Fim:</label><input type="date" id="data-fim" value="2026-03-31" style="width:100%;"></div>
+          </select>
         </div>
-        <button class="btn-mega" onclick="syncData()">Baixar para o Excel</button>
+
+        <div id="filtros-data">
+          <div class="form-group">
+            <label>Data Início:</label>
+            <input type="date" id="data-inicio" value="2026-03-01">
+          </div>
+          <div class="form-group">
+            <label>Data Fim:</label>
+            <input type="date" id="data-fim" value="2026-03-31">
+          </div>
+        </div>
+
+        <button id="btn-sync" class="btn-mega">Baixar dados para o Excel</button>
+      </div>
+      
+      <div id="status">Pronto.</div>
+
+      <div style="margin-top: 20px; font-size: 10px; color: #999; text-align: center; border-top: 1px solid #eee; padding-top: 10px;">
+        Versão: 1.2.5 | LG CFO<br>
+        Status Ribbon: Ativado
+      </div>
     </div>
-
-    <div id="agnt" class="content">
-        <label style="font-weight:bold; font-size:12px;">Cadastro em Massa:</label>
-        <button class="btn-mega btn-template" onclick="gerarTemplateAgentes()">1. Gerar Planilha Modelo</button>
-        <button class="btn-mega" style="background:#d83b01;" onclick="processarInclusoesAgentes()">2. Enviar Cadastros ao Mega</button>
-        <p style="font-size:10px; color:#666; margin-top:10px;">Preencha a planilha e clique em enviar. O status aparecerá na coluna G.</p>
-    </div>
-
-    <div id="status" style="margin-top:20px; font-size:11px; text-align:center; color:#666;">Pronto para operar.</div>
-
-    <div style="font-size: 9px; color: #999; text-align: center; margin-top: 20px; border-top: 1px solid #eee; padding-top: 10px;">
-        LG CFO - v1.2.0 (Estável)<br>Ambiente: Produção GitHub
-    </div>
-
-    <script>
-        function switchTab(id, el) {
-            $('.content').removeClass('active');
-            $('.tab').removeClass('active');
-            $('#' + id).addClass('active');
-            $(el).addClass('active');
-        }
-    </script>
 </body>
 </html>
