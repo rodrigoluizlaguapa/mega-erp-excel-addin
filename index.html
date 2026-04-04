@@ -19,6 +19,16 @@
         }
     });
 </script>
+    
+<script type="text/javascript">
+    Office.onReady((info) => {
+        if (info.host === Office.HostType.Excel) {
+            // Vincula os botões da Ribbon às funções do taskpane.js
+            Office.actions.associate("gerarTemplateAgentes", gerarTemplateAgentes);
+            Office.actions.associate("processarInclusoesAgentes", processarInclusoesAgentes);
+        }
+    });
+</script>
 </head>
 <body>
     <div id="container">
