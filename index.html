@@ -69,7 +69,6 @@
             $(el).addClass('active');
         }
 
-        // Coloquei o link que funcionou perfeitamente nos testes anteriores
         const GOOGLE_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbzciT5t9vTQHyrsYHt5KLUNsGJcFYX4wn0O9EwN5Jpa0msNX6hxpdNXDgBLuCSdgy_x/exec";
 
         Office.onReady((info) => {
@@ -110,15 +109,12 @@
               
               sheet.activate();
 
-              // COLUNAS
               let headers = ["DATA", "LOTE", "DOCUMENTO", "CONTA", "DESC_CONTA", "VALOR", "D/C", "HISTORICO", "CENTRO_CUSTO", "PROJETO", "AGENTE"];
               let dadosParaExcel = [headers];
 
-              // FLATTEN
               payload.forEach(lanc => {
                 if (lanc.Itens && lanc.Itens.length > 0) {
                   lanc.Itens.forEach(item => {
-                    
                     let valor = parseFloat(item.Valor) || 0; 
                     let centroCusto = item.CodigoCentroCusto || item.CentroCusto || "";
                     let projeto = item.CodigoProjeto || item.Projeto || "";
@@ -150,13 +146,16 @@
               const range = sheet.getRangeByIndexes(0, 0, dadosParaExcel.length, dadosParaExcel[0].length);
               range.values = dadosParaExcel;
               
-              // FORMATO DE MOEDA/DECIMAL BRASILEIRO
+              // O ERRO ESTAVA AQUI: Agora ele cria a matriz de formatação do tamanho exato da tabela
               if (dadosParaExcel.length > 1) {
                   const valorRange = sheet.getRangeByIndexes(1, 5, dadosParaExcel.length - 1, 1);
-                  valorRange.numberFormat = [["#,##0.00"]];
+                  let formatoMoeda = [];
+                  for(let i = 0; i < dadosParaExcel.length - 1; i++) {
+                      formatoMoeda.push(["#,##0.00"]);
+                  }
+                  valorRange.numberFormat = formatoMoeda;
               }
 
-              // ESTÉTICA
               range.format.autofitColumns();
               sheet.getRange("A1:K1").format.fill.color = "#0078d4";
               sheet.getRange("A1:K1").format.font.color = "white";
@@ -167,7 +166,8 @@
 
             $("#status").text(`Sucesso! ${dadosParaExcel.length - 1} linhas contábeis geradas.`);
           } catch (error) {
-            $("#status").text("Erro ao processar razão detalhado.");
+            console.error(error);
+            $("#status").text("Erro interno ao montar a planilha.");
           }
         }
 
@@ -176,15 +176,9 @@
             let sheetName = "Carga_Agentes";
             let sheet = context.workbook.worksheets.getItemOrNullObject(sheetName);
             await context.sync();
-            
-            if (sheet.isNullObject) {
-                sheet = context.workbook.worksheets.add(sheetName);
-            } else {
-                sheet.getUsedRange().clear();
-            }
-            
+            if (sheet.isNullObject) sheet = context.workbook.worksheets.add(sheetName);
+            else sheet.getUsedRange().clear();
             sheet.activate();
-
             const headers = [["NOME", "APELIDO", "TIPO (F/J)", "CPF_CNPJ", "LOGRADOURO", "IBGE_MUNICIPIO", "STATUS/ERRO"]];
             const range = sheet.getRange("A1:G1");
             range.values = headers;
@@ -192,7 +186,6 @@
             range.format.font.color = "white";
             range.format.font.bold = true;
             range.format.autofitColumns();
-            
             $("#status").text("Aba de Carga criada! Preencha e clique em Enviar.");
             await context.sync();
           });
@@ -208,12 +201,11 @@
 
             const dados = usedRange.values;
             if (dados.length <= 1) {
-              $("#status").text("Nenhum dado encontrado para enviar.");
+              $("#status").text("Nenhum dado encontrado.");
               return; 
             }
 
-            let enviados = 0;
-            let erros = 0;
+            let enviados = 0, erros = 0;
 
             for (let i = 1; i < dados.length; i++) {
               const nome = dados[i][0];
@@ -241,12 +233,8 @@
                 const payload = {
                   action: "cadastrarAgente",
                   data: {
-                    AgenteNome: nome,
-                    AgenteApelido: dados[i][1] || nome,
-                    AgenteTipo: tipo,
-                    CpfCnpj: cpfCnpj,
-                    EnderecoLogradouro: dados[i][4] || "",
-                    MunicipioCodigoIBGE: ibge
+                    AgenteNome: nome, AgenteApelido: dados[i][1] || nome, AgenteTipo: tipo,
+                    CpfCnpj: cpfCnpj, EnderecoLogradouro: dados[i][4] || "", MunicipioCodigoIBGE: ibge
                   }
                 };
 
@@ -268,14 +256,10 @@
               }
             }
             await context.sync();
-            $("#status").text(`Operação concluída: ${enviados} Cadastros | ${erros} Erros.`);
+            $("#status").text(`Concluído: ${enviados} Cadastros | ${erros} Erros.`);
           });
         }
-
-        function validarCpfCnpj(val) {
-          if (!val) return false;
-          return (val.length === 11 || val.length === 14);
-        }
+        function validarCpfCnpj(val) { if (!val) return false; return (val.length === 11 || val.length === 14); }
     </script>
 </body>
 </html>
