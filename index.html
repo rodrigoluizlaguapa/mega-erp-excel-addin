@@ -81,26 +81,77 @@
           }
         });
 
-        async function syncData() {
-          try {
-            $("#status").text("Consultando Mega ERP... Aguarde.");
-            const modulo = $("#modulo").val();
-            const dataInicio = $("#data-inicio").val();
-            const dataFim = $("#data-fim").val();
+async function syncData() {
+  try {
+    $("#status").text("Consultando Razão Detalhado... Aguarde.");
+    const modulo = $("#modulo").val();
+    const dataInicio = $("#data-inicio").val();
+    const dataFim = $("#data-fim").val();
 
-            // O TRUQUE MÁGICO: Colocamos a data exata do clique no link para o Excel NUNCA usar cache
-            const urlSemCache = `${GOOGLE_WEBAPP_URL}?action=${modulo}&inicio=${dataInicio}&fim=${dataFim}&nocache=${new Date().getTime()}`;
-            
-            const res = await fetch(urlSemCache);
-            const rawText = await res.text();
-            
-            let result;
-            try {
-                result = JSON.parse(rawText);
-            } catch(e) {
-                $("#status").text("Erro: O servidor não retornou um formato válido.");
-                return;
-            }
+    const urlSemCache = `${GOOGLE_WEBAPP_URL}?action=${modulo}&inicio=${dataInicio}&fim=${dataFim}&nocache=${new Date().getTime()}`;
+    
+    const res = await fetch(urlSemCache);
+    const result = await res.json();
+    const payload = result.data;
+
+    if (!payload || payload.length === 0) {
+      $("#status").text("Nenhum dado encontrado.");
+      return;
+    }
+
+    await Excel.run(async (context) => {
+      let sheetName = "Razao_Detalhado";
+      let sheet = context.workbook.worksheets.getItemOrNullObject(sheetName);
+      await context.sync();
+      
+      if (sheet.isNullObject) sheet = context.workbook.worksheets.add(sheetName);
+      else sheet.getUsedRange().clear();
+      
+      sheet.activate();
+
+      // CABEÇALHOS DO RELATÓRIO
+      let headers = ["DATA", "LOTE", "DOCUMENTO", "CONTA", "DESC_CONTA", "VALOR", "D/C", "HISTORICO", "CENTRO_CUSTO"];
+      let dadosParaExcel = [headers];
+
+      // LOGICA DE ACHATAMENTO (FLATTEN)
+      payload.forEach(lanc => {
+        // Se o lançamento tiver Itens (Detalhes), criamos uma linha para cada item
+        if (lanc.Itens && lanc.Itens.length > 0) {
+          lanc.Itens.forEach(item => {
+            dadosParaExcel.push([
+              lanc.Data || "",
+              lanc.CodigoLote || "",
+              lanc.Codigo || "",
+              item.EstruturaContabil || "",
+              item.DescricaoContaContabil || "",
+              item.Valor || 0,
+              item.TipoLancamento || "", // D ou C
+              item.Historico || "",
+              item.CodigoCentroCusto || ""
+            ]);
+          });
+        } else {
+          // Se não tiver detalhes, trazemos pelo menos a capa
+          dadosParaExcel.push([lanc.Data, lanc.CodigoLote, lanc.Codigo, "SEM ITENS", "", 0, "", "", ""]);
+        }
+      });
+
+      const range = sheet.getRangeByIndexes(0, 0, dadosParaExcel.length, dadosParaExcel[0].length);
+      range.values = dadosParaExcel;
+      
+      // Formatação
+      range.format.autofitColumns();
+      sheet.getRange("A1:I1").format.fill.color = "#0078d4";
+      sheet.getRange("A1:I1").format.font.color = "white";
+      
+      await context.sync();
+    });
+
+    $("#status").text(`Sucesso! ${dadosParaExcel.length - 1} linhas contábeis geradas.`);
+  } catch (error) {
+    $("#status").text("Erro ao processar razão detalhado.");
+  }
+}
 
             // O CAÇADOR DE DADOS: Não importa como o Mega/Google mande, nós achamos a lista!
             let arrayDeDados = [];
