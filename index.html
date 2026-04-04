@@ -13,7 +13,8 @@
         .tabs { display: flex; background: #fff; border-bottom: 1px solid #ccc; }
         .tab { flex: 1; padding: 12px 0; text-align: center; cursor: pointer; font-size: 13px; font-weight: bold; color: #666; border-bottom: 3px solid transparent; }
         .tab.active { color: #0078d4; border-bottom: 3px solid #0078d4; }
-        .content { display: none; padding: 15px; background: #fff; height: 100vh; }
+        /* Aqui estava o erro: removi o height: 100vh */
+        .content { display: none; padding: 15px; background: #fff; } 
         .content.active { display: block; }
         .form-group { margin-bottom: 15px; }
         label { font-size: 12px; font-weight: bold; display: block; margin-bottom: 5px; color: #333; }
@@ -24,7 +25,19 @@
         .btn-green:hover { background: #1e6b40; }
         .btn-orange { background: #d83b01; }
         .btn-orange:hover { background: #ea4a1f; }
-        #status { margin-top: 20px; font-size: 12px; text-align: center; color: #666; padding: 10px; background: #f9f9f9; border-radius: 4px; border: 1px solid #eee; }
+        
+        /* Nova caixa de status bem visível */
+        #status { 
+            margin: 15px; 
+            font-size: 13px; 
+            font-weight: bold;
+            text-align: center; 
+            color: #004085; 
+            padding: 12px; 
+            background: #cce5ff; 
+            border-radius: 4px; 
+            border: 1px solid #b8daff; 
+        }
     </style>
 </head>
 <body>
@@ -32,6 +45,8 @@
         <div class="tab active" onclick="switchTab('relat', this)">RELATÓRIOS</div>
         <div class="tab" onclick="switchTab('agnt', this)">AGENTES</div>
     </div>
+
+    <div id="status">Pronto para operar.</div>
 
     <div id="relat" class="content active">
         <div class="form-group">
@@ -60,8 +75,6 @@
         <button id="btn-enviar" class="btn btn-orange">2. Enviar p/ Mega ERP</button>
         <p style="font-size: 11px; color: #999; margin-top: 15px; text-align: center;">O status da integração aparecerá na coluna G da planilha.</p>
     </div>
-
-    <div id="status">Pronto para operar.</div>
 
     <script>
         function switchTab(id, el) {
