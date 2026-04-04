@@ -81,7 +81,7 @@
           }
         });
 
-        async function syncData() {
+async function syncData() {
           try {
             $("#status").text("Consultando Razão Detalhado... Aguarde.");
             const modulo = $("#modulo").val();
@@ -109,30 +109,71 @@
               
               sheet.activate();
 
-              // CABEÇALHOS DO RELATÓRIO
-              let headers = ["DATA", "LOTE", "DOCUMENTO", "CONTA", "DESC_CONTA", "VALOR", "D/C", "HISTORICO", "CENTRO_CUSTO"];
+              // 1. NOVAS COLUNAS ADICIONADAS AQUI
+              let headers = ["DATA", "LOTE", "DOCUMENTO", "CONTA", "DESC_CONTA", "VALOR", "D/C", "HISTORICO", "CENTRO_CUSTO", "PROJETO", "AGENTE"];
               let dadosParaExcel = [headers];
 
               // LOGICA DE ACHATAMENTO (FLATTEN)
               payload.forEach(lanc => {
                 if (lanc.Itens && lanc.Itens.length > 0) {
                   lanc.Itens.forEach(item => {
+                    
+                    // Tratamento para garantir que seja sempre um número real para o Excel calcular
+                    let valor = parseFloat(item.Valor) || 0; 
+
+                    // Radares para pegar os códigos (se vierem como objeto, ele tenta puxar o nome/código)
+                    let centroCusto = item.CodigoCentroCusto || item.CentroCusto || "";
+                    let projeto = item.CodigoProjeto || item.Projeto || "";
+                    let agente = item.NomeAgente || item.CodigoAgente || item.Agente || "";
+
+                    // Se por acaso o Mega mandar um "Pacote Objeto", nós extraímos o texto
+                    if (typeof centroCusto === 'object') centroCusto = centroCusto.Nome || centroCusto.Codigo || "";
+                    if (typeof projeto === 'object') projeto = projeto.Nome || projeto.Codigo || "";
+                    if (typeof agente === 'object') agente = agente.Nome || agente.Codigo || "";
+
                     dadosParaExcel.push([
                       lanc.Data || "",
                       lanc.CodigoLote || "",
                       lanc.Codigo || "",
                       item.EstruturaContabil || "",
                       item.DescricaoContaContabil || "",
-                      item.Valor || 0,
+                      valor, // Enviamos o número puro para o Excel formatar
                       item.TipoLancamento || "", 
                       item.Historico || "",
-                      item.CodigoCentroCusto || ""
+                      centroCusto,
+                      projeto,
+                      agente
                     ]);
                   });
                 } else {
-                  dadosParaExcel.push([lanc.Data, lanc.CodigoLote, lanc.Codigo, "SEM ITENS", "", 0, "", "", ""]);
+                  dadosParaExcel.push([lanc.Data, lanc.CodigoLote, lanc.Codigo, "SEM ITENS", "", 0, "", "", "", "", ""]);
                 }
               });
+
+              const range = sheet.getRangeByIndexes(0, 0, dadosParaExcel.length, dadosParaExcel[0].length);
+              range.values = dadosParaExcel;
+              
+              // 2. A MÁGICA DA VÍRGULA (Formata a coluna VALOR, que é o índice 5 / Coluna F)
+              if (dadosParaExcel.length > 1) {
+                  const valorRange = sheet.getRangeByIndexes(1, 5, dadosParaExcel.length - 1, 1);
+                  // O formato "#,##0.00" diz ao Excel para usar o separador do Windows (vírgula no Brasil)
+                  valorRange.numberFormat = [["#,##0.00"]];
+              }
+
+              // Estética da Tabela
+              range.format.autofitColumns();
+              sheet.getRange("A1:K1").format.fill.color = "#0078d4";
+              sheet.getRange("A1:K1").format.font.color = "white";
+              sheet.getRange("A1:K1").format.font.bold = true;
+              
+              await context.sync();
+            });
+
+            $("#status").text(`Sucesso! ${dadosParaExcel.length - 1} linhas contábeis geradas.`);
+          } catch (error) {
+            $("#status").text("Erro ao processar razão detalhado.");
+          }
+        });
 
               const range = sheet.getRangeByIndexes(0, 0, dadosParaExcel.length, dadosParaExcel[0].length);
               range.values = dadosParaExcel;
