@@ -81,145 +81,72 @@
           }
         });
 
-async function syncData() {
-  try {
-    $("#status").text("Consultando Razão Detalhado... Aguarde.");
-    const modulo = $("#modulo").val();
-    const dataInicio = $("#data-inicio").val();
-    const dataFim = $("#data-fim").val();
+        async function syncData() {
+          try {
+            $("#status").text("Consultando Razão Detalhado... Aguarde.");
+            const modulo = $("#modulo").val();
+            const dataInicio = $("#data-inicio").val();
+            const dataFim = $("#data-fim").val();
 
-    const urlSemCache = `${GOOGLE_WEBAPP_URL}?action=${modulo}&inicio=${dataInicio}&fim=${dataFim}&nocache=${new Date().getTime()}`;
-    
-    const res = await fetch(urlSemCache);
-    const result = await res.json();
-    const payload = result.data;
+            const urlSemCache = `${GOOGLE_WEBAPP_URL}?action=${modulo}&inicio=${dataInicio}&fim=${dataFim}&nocache=${new Date().getTime()}`;
+            
+            const res = await fetch(urlSemCache);
+            const result = await res.json();
+            const payload = result.data;
 
-    if (!payload || payload.length === 0) {
-      $("#status").text("Nenhum dado encontrado.");
-      return;
-    }
-
-    await Excel.run(async (context) => {
-      let sheetName = "Razao_Detalhado";
-      let sheet = context.workbook.worksheets.getItemOrNullObject(sheetName);
-      await context.sync();
-      
-      if (sheet.isNullObject) sheet = context.workbook.worksheets.add(sheetName);
-      else sheet.getUsedRange().clear();
-      
-      sheet.activate();
-
-      // CABEÇALHOS DO RELATÓRIO
-      let headers = ["DATA", "LOTE", "DOCUMENTO", "CONTA", "DESC_CONTA", "VALOR", "D/C", "HISTORICO", "CENTRO_CUSTO"];
-      let dadosParaExcel = [headers];
-
-      // LOGICA DE ACHATAMENTO (FLATTEN)
-      payload.forEach(lanc => {
-        // Se o lançamento tiver Itens (Detalhes), criamos uma linha para cada item
-        if (lanc.Itens && lanc.Itens.length > 0) {
-          lanc.Itens.forEach(item => {
-            dadosParaExcel.push([
-              lanc.Data || "",
-              lanc.CodigoLote || "",
-              lanc.Codigo || "",
-              item.EstruturaContabil || "",
-              item.DescricaoContaContabil || "",
-              item.Valor || 0,
-              item.TipoLancamento || "", // D ou C
-              item.Historico || "",
-              item.CodigoCentroCusto || ""
-            ]);
-          });
-        } else {
-          // Se não tiver detalhes, trazemos pelo menos a capa
-          dadosParaExcel.push([lanc.Data, lanc.CodigoLote, lanc.Codigo, "SEM ITENS", "", 0, "", "", ""]);
-        }
-      });
-
-      const range = sheet.getRangeByIndexes(0, 0, dadosParaExcel.length, dadosParaExcel[0].length);
-      range.values = dadosParaExcel;
-      
-      // Formatação
-      range.format.autofitColumns();
-      sheet.getRange("A1:I1").format.fill.color = "#0078d4";
-      sheet.getRange("A1:I1").format.font.color = "white";
-      
-      await context.sync();
-    });
-
-    $("#status").text(`Sucesso! ${dadosParaExcel.length - 1} linhas contábeis geradas.`);
-  } catch (error) {
-    $("#status").text("Erro ao processar razão detalhado.");
-  }
-}
-
-            // O CAÇADOR DE DADOS: Não importa como o Mega/Google mande, nós achamos a lista!
-            let arrayDeDados = [];
-            let payload = result.data !== undefined ? result.data : result;
-
-            if (Array.isArray(payload)) {
-                arrayDeDados = payload;
-            } else if (payload && typeof payload === 'object') {
-                if (Array.isArray(payload.items)) arrayDeDados = payload.items;
-                else if (Array.isArray(payload.Items)) arrayDeDados = payload.Items;
-                else {
-                    // Caça qualquer lista escondida dentro do pacote
-                    for (let key in payload) {
-                        if (Array.isArray(payload[key])) {
-                            arrayDeDados = payload[key];
-                            break;
-                        }
-                    }
-                }
-            }
-
-            // Se não tiver NENHUMA lista, ele cospe o pacote inteiro na tela pra gente ver onde a lista tá escondida
-            if (arrayDeDados.length === 0) {
-                 arrayDeDados = [{"RAIO_X_DO_MEGA": JSON.stringify(payload).substring(0, 5000)}];
+            if (!payload || payload.length === 0) {
+              $("#status").text("Nenhum dado encontrado.");
+              return;
             }
 
             await Excel.run(async (context) => {
-              let sheetName = "Relatorio_" + modulo.toUpperCase();
+              let sheetName = "Razao_Detalhado";
               let sheet = context.workbook.worksheets.getItemOrNullObject(sheetName);
               await context.sync();
               
-              if (sheet.isNullObject) {
-                  sheet = context.workbook.worksheets.add(sheetName);
-              } else {
-                  sheet.getUsedRange().clear();
-              }
+              if (sheet.isNullObject) sheet = context.workbook.worksheets.add(sheetName);
+              else sheet.getUsedRange().clear();
               
               sheet.activate();
 
-              let headers = Object.keys(arrayDeDados[0]);
+              // CABEÇALHOS DO RELATÓRIO
+              let headers = ["DATA", "LOTE", "DOCUMENTO", "CONTA", "DESC_CONTA", "VALOR", "D/C", "HISTORICO", "CENTRO_CUSTO"];
               let dadosParaExcel = [headers];
 
-              arrayDeDados.forEach(item => {
-                let linha = [];
-                headers.forEach(h => {
-                    let valor = item[h];
-                    if(valor === null || valor === undefined) valor = "";
-                    if(typeof valor === 'object') valor = JSON.stringify(valor);
-                    linha.push(valor);
-                });
-                dadosParaExcel.push(linha);
+              // LOGICA DE ACHATAMENTO (FLATTEN)
+              payload.forEach(lanc => {
+                if (lanc.Itens && lanc.Itens.length > 0) {
+                  lanc.Itens.forEach(item => {
+                    dadosParaExcel.push([
+                      lanc.Data || "",
+                      lanc.CodigoLote || "",
+                      lanc.Codigo || "",
+                      item.EstruturaContabil || "",
+                      item.DescricaoContaContabil || "",
+                      item.Valor || 0,
+                      item.TipoLancamento || "", 
+                      item.Historico || "",
+                      item.CodigoCentroCusto || ""
+                    ]);
+                  });
+                } else {
+                  dadosParaExcel.push([lanc.Data, lanc.CodigoLote, lanc.Codigo, "SEM ITENS", "", 0, "", "", ""]);
+                }
               });
 
               const range = sheet.getRangeByIndexes(0, 0, dadosParaExcel.length, dadosParaExcel[0].length);
               range.values = dadosParaExcel;
               
-              const headerRange = sheet.getRangeByIndexes(0, 0, 1, headers.length);
-              headerRange.format.fill.color = "#0078d4";
-              headerRange.format.font.color = "white";
-              headerRange.format.font.bold = true;
-              
               range.format.autofitColumns();
+              sheet.getRange("A1:I1").format.fill.color = "#0078d4";
+              sheet.getRange("A1:I1").format.font.color = "white";
+              
               await context.sync();
             });
 
-            $("#status").text(`Sucesso! ${arrayDeDados.length} linhas processadas.`);
+            $("#status").text(`Sucesso! ${dadosParaExcel.length - 1} linhas contábeis geradas.`);
           } catch (error) {
-            $("#status").text("Erro ao baixar os dados.");
+            $("#status").text("Erro ao processar razão detalhado.");
           }
         }
 
@@ -253,81 +180,4 @@ async function syncData() {
         async function processarInclusoesAgentes() {
           await Excel.run(async (context) => {
             $("#status").text("Analisando e enviando dados...");
-            const sheet = context.workbook.worksheets.getActiveWorksheet();
-            const usedRange = sheet.getUsedRange();
-            usedRange.load("values, rowCount");
-            await context.sync();
-
-            const dados = usedRange.values;
-            if (dados.length <= 1) {
-              $("#status").text("Nenhum dado encontrado para enviar.");
-              return; 
-            }
-
-            let enviados = 0;
-            let erros = 0;
-
-            for (let i = 1; i < dados.length; i++) {
-              const nome = dados[i][0];
-              const tipo = dados[i][2]?.toUpperCase();
-              const cpfCnpj = dados[i][3]?.toString().replace(/\D/g, '');
-              const ibge = dados[i][5]?.toString();
-
-              let erroLocal = "";
-              if (!nome) erroLocal = "Nome obrigatório";
-              else if (!tipo || (tipo !== 'F' && tipo !== 'J')) erroLocal = "Tipo deve ser F ou J";
-              else if (!validarCpfCnpj(cpfCnpj)) erroLocal = "CPF/CNPJ Inválido";
-              else if (!ibge || ibge.length !== 7) erroLocal = "IBGE deve ter 7 dígitos";
-
-              const rangeLinha = sheet.getRange(`A${i + 1}:F${i + 1}`);
-              const rangeStatus = sheet.getRange(`G${i + 1}`);
-
-              if (erroLocal) {
-                rangeLinha.format.fill.color = "#FFC7CE";
-                rangeStatus.values = [[erroLocal]];
-                erros++;
-                continue;
-              }
-
-              try {
-                const payload = {
-                  action: "cadastrarAgente",
-                  data: {
-                    AgenteNome: nome,
-                    AgenteApelido: dados[i][1] || nome,
-                    AgenteTipo: tipo,
-                    CpfCnpj: cpfCnpj,
-                    EnderecoLogradouro: dados[i][4] || "",
-                    MunicipioCodigoIBGE: ibge
-                  }
-                };
-
-                const response = await fetch(GOOGLE_WEBAPP_URL, { method: "POST", body: JSON.stringify(payload) });
-                const result = await response.json();
-
-                if (result.success) {
-                  rangeLinha.format.fill.color = "#C6EFCE";
-                  rangeStatus.values = [["Sucesso"]];
-                  enviados++;
-                } else {
-                  rangeLinha.format.fill.color = "#FFC7CE";
-                  rangeStatus.values = [[result.response]];
-                  erros++;
-                }
-              } catch (err) {
-                rangeStatus.values = [["Erro de Conexão"]];
-                erros++;
-              }
-            }
-            await context.sync();
-            $("#status").text(`Operação concluída: ${enviados} Cadastros | ${erros} Erros.`);
-          });
-        }
-
-        function validarCpfCnpj(val) {
-          if (!val) return false;
-          return (val.length === 11 || val.length === 14);
-        }
-    </script>
-</body>
-</html>
+            const sheet = context.workbook.worksheets
