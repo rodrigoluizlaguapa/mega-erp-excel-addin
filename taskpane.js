@@ -12,16 +12,77 @@ Office.onReady((info) => {
 });
 
 // --- FUNÇÕES DA ABA RELATÓRIOS ---
+// --- FUNÇÕES DA ABA RELATÓRIOS ---
 async function syncData() {
   try {
-    $("#status").text("Baixando dados do Mega ERP...");
+    $("#status").text("Consultando Mega ERP... Aguarde.");
+    
     const modulo = $("#modulo").val();
-    const res = await fetch(`${GOOGLE_WEBAPP_URL}?action=${modulo}`);
-    const responseData = await res.json();
-    $("#status").text("Dados baixados com sucesso!");
-    // Lógica adicional para colar os dados baixados no Excel entraria aqui
+    const dataInicio = $("#data-inicio").val();
+    const dataFim = $("#data-fim").val();
+
+    // Faz a chamada ao Google Apps Script passando as datas do painel
+    const res = await fetch(`${GOOGLE_WEBAPP_URL}?action=${modulo}&inicio=${dataInicio}&fim=${dataFim}`);
+    const result = await res.json();
+
+    // Se o servidor retornar vazio ou erro
+    if (!result || result.length === 0) {
+      $("#status").text("Nenhum dado encontrado para este período.");
+      return;
+    }
+
+    // Escreve os dados no Excel
+    await Excel.run(async (context) => {
+      const sheet = context.workbook.worksheets.getActiveWorksheet();
+      sheet.getUsedRange().clear(); // Limpa a planilha atual
+
+      // Se result.data for a matriz (depende de como o seu Google Script devolve)
+      // Assumindo que o Apps Script devolve um array de objetos (JSON normal)
+      let dadosParaExcel = [];
+      let headers = [];
+
+      if (Array.isArray(result) && result.length > 0) {
+        headers = Object.keys(result[0]); // Pega o nome das colunas
+        dadosParaExcel.push(headers); // Linha 1 = Cabeçalho
+
+        // Preenche as linhas seguintes
+        result.forEach(item => {
+          let linha = [];
+          headers.forEach(h => linha.push(item[h]));
+          dadosParaExcel.push(linha);
+        });
+      } else if (result.data && Array.isArray(result.data)) {
+        // Caso o seu script devolva dentro de um objeto { success: true, data: [...] }
+        headers = Object.keys(result.data[0]);
+        dadosParaExcel.push(headers);
+        result.data.forEach(item => {
+          let linha = [];
+          headers.forEach(h => linha.push(item[h]));
+          dadosParaExcel.push(linha);
+        });
+      }
+
+      if (dadosParaExcel.length > 0) {
+        const range = sheet.getRangeByIndexes(0, 0, dadosParaExcel.length, dadosParaExcel[0].length);
+        range.values = dadosParaExcel;
+        
+        // Formata o cabeçalho de azul
+        const headerRange = sheet.getRangeByIndexes(0, 0, 1, headers.length);
+        headerRange.format.fill.color = "#0078d4";
+        headerRange.format.font.color = "white";
+        headerRange.format.font.bold = true;
+        
+        range.format.autofitColumns(); // Ajusta a largura das colunas
+      }
+
+      await context.sync();
+    });
+
+    $("#status").text("Razão Contábil gerado com sucesso!");
+
   } catch (error) {
-    $("#status").text("Erro ao conectar com o servidor.");
+    console.error(error);
+    $("#status").text("Erro ao baixar os dados. Verifique a conexão.");
   }
 }
 
