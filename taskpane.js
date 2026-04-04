@@ -1,124 +1,110 @@
-const GOOGLE_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbwkTGfXu8KJ_HVfFDcrswTshMST20E8BIfmOBBsgeVt_rhzUZ3HIQhWpl8EYAJHsLaU/exec"; 
-
-let detailCache = {}; 
-let selectionTimeout = null;
+const GOOGLE_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbx6QhNdtZo9U1p-rsRhXvBPWkv58NHItnajCU3OQKFcRKfiiYxGdjPj5P7dZsa9cww9/exec"; 
 
 Office.onReady((info) => {
   if (info.host === Office.HostType.Excel) {
     $(document).ready(() => {
+      // Evento para o botão do painel lateral (se houver)
       $("#btn-sync").on("click", syncData);
-      Office.context.document.addHandlerAsync(
-        Office.EventType.DocumentSelectionChanged, 
-        onSelectionChange
-      );
     });
   }
 });
 
-async function syncData() {
-  $("#status").text("Buscando dados via Google Workspace...");
-  detailCache = {}; 
+// --- FUNÇÕES CHAMADAS PELA RIBBON ---
 
-  try {
-    const timestamp = new Date().getTime(); 
-    const res = await fetch(`${GOOGLE_WEBAPP_URL}?action=list&t=${timestamp}`, {
-      method: "GET",
-      redirect: "follow"
-    });
+async function gerarTemplateAgentes() {
+  await Excel.run(async (context) => {
+    const sheet = context.workbook.worksheets.getActiveWorksheet();
+    sheet.getUsedRange().clear();
+
+    const headers = [["NOME", "APELIDO", "TIPO (F/J)", "CPF_CNPJ", "LOGRADOURO", "IBGE_MUNICIPIO", "STATUS/ERRO"]];
+    const range = sheet.getRange("A1:G1");
+    range.values = headers;
+    range.format.fill.color = "#0078d4";
+    range.format.font.color = "white";
+    range.format.font.bold = true;
+    range.format.autofitColumns();
     
-    const responseData = await res.json();
+    await context.sync();
+  });
+}
 
-    if (!responseData.success) {
-      throw new Error(responseData.error);
-    }
+async function processarInclusoesAgentes() {
+  await Excel.run(async (context) => {
+    const sheet = context.workbook.worksheets.getActiveWorksheet();
+    const usedRange = sheet.getUsedRange();
+    usedRange.load("values, rowCount");
+    await context.sync();
 
-    const data = responseData.data;
+    const dados = usedRange.values;
+    if (dados.length <= 1) return; // Só cabeçalho
 
-    await Excel.run(async (context) => {
-      const sheet = context.workbook.worksheets.getActiveWorksheet();
-      sheet.getUsedRange().clear();
-      
-      const reportValues = [["ID (Drill Down)", "Data", "Código", "Lote"]];
-      
-      if (data && Array.isArray(data)) {
-        data.forEach((item) => {
-          reportValues.push([item.Id || "", item.Data || "", item.Codigo || "", item.CodigoLote || ""]);
-        });
+    for (let i = 1; i < dados.length; i++) {
+      const nome = dados[i][0];
+      const tipo = dados[i][2]?.toUpperCase();
+      const cpfCnpj = dados[i][3]?.toString().replace(/\D/g, '');
+      const ibge = dados[i][5]?.toString();
+
+      let erroLocal = "";
+      if (!nome) erroLocal = "Nome obrigatório";
+      else if (!tipo || (tipo !== 'F' && tipo !== 'J')) erroLocal = "Tipo deve ser F ou J";
+      else if (!validarCpfCnpj(cpfCnpj)) erroLocal = "CPF/CNPJ Inválido";
+      else if (!ibge || ibge.length !== 7) erroLocal = "IBGE deve ter 7 dígitos";
+
+      const rangeLinha = sheet.getRange(`A${i + 1}:F${i + 1}`);
+      const rangeStatus = sheet.getRange(`G${i + 1}`);
+
+      if (erroLocal) {
+        rangeLinha.format.fill.color = "#FFC7CE";
+        rangeStatus.values = [[erroLocal]];
+        continue;
       }
 
-      const range = sheet.getRangeByIndexes(0, 0, reportValues.length, 4);
-      range.values = reportValues;
-      range.format.autofitColumns();
-      await context.sync();
-    });
+      try {
+        const payload = {
+          action: "cadastrarAgente",
+          data: {
+            AgenteNome: nome,
+            AgenteApelido: dados[i][1] || nome,
+            AgenteTipo: tipo,
+            CpfCnpj: cpfCnpj,
+            EnderecoLogradouro: dados[i][4] || "",
+            MunicipioCodigoIBGE: ibge
+          }
+        };
 
-    $("#status").html("<span style='color:green'>Sucesso! Clique no ID para ver o Razão.</span>");
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    $("#status").html(`<span style='color:red'>Erro (Lista): ${errorMessage}</span>`);
-  }
-}
+        const response = await fetch(GOOGLE_WEBAPP_URL, {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
+        const result = await response.json();
 
-function renderDetails(detail) {
-  let htmlLines = `<b>Lote:</b> ${detail.CodigoLote || "N/A"}<br><hr>`;
-  
-  if (detail.Itens && detail.Itens.length > 0) {
-      detail.Itens.forEach(line => {
-        htmlLines += `<div class="item-line">
-          <b>D:</b> ${line.ReduzidoContaDebito || "-"} | <b>C:</b> ${line.ReduzidoContaCredito || "-"} <br>
-          <b>Valor:</b> R$ ${line.Valor.toLocaleString('pt-BR')} <br>
-          <small>${line.Complemento || ""}</small>
-        </div>`;
-      });
-  } else {
-      htmlLines += "Nenhum item encontrado.";
-  }
-  
-  $("#detail-content").html(htmlLines);
-}
-
-async function onSelectionChange() {
-  await Excel.run(async (context) => {
-    const range = context.workbook.getSelectedRange();
-    range.load("values, columnIndex");
-    await context.sync();
-    
-    if (!range.values || !range.values[0]) return;
-    const selectedId = range.values[0][0];
-
-    if (range.columnIndex === 0 && typeof selectedId === "string" && selectedId.length > 10) {
-      
-      if (selectionTimeout) clearTimeout(selectionTimeout);
-
-      selectionTimeout = setTimeout(async () => {
-        $("#detail-pane").show();
-
-        if (detailCache[selectedId]) {
-          renderDetails(detailCache[selectedId]);
-          return; 
+        if (result.success) {
+          rangeLinha.format.fill.color = "#C6EFCE";
+          rangeStatus.values = [["Sucesso"]];
+        } else {
+          rangeLinha.format.fill.color = "#FFC7CE";
+          rangeStatus.values = [[result.response]];
         }
-
-        $("#detail-content").html("<i>Buscando detalhes via Google... ⏳</i>");
-
-        try {
-          const timestamp = new Date().getTime();
-          const res = await fetch(`${GOOGLE_WEBAPP_URL}?action=detail&id=${selectedId}&t=${timestamp}`, {
-            method: "GET",
-            redirect: "follow"
-          });
-          
-          const responseData = await res.json();
-
-          if (!responseData.success) throw new Error(responseData.error);
-          
-          detailCache[selectedId] = responseData.data;
-          renderDetails(responseData.data);
-
-        } catch (err) {
-          const errMsg = err instanceof Error ? err.message : String(err);
-          $("#detail-content").html(`<span style='color:red'>Erro (Detalhe): ${errMsg}</span>`);
-        }
-      }, 400); 
+      } catch (err) {
+        rangeStatus.values = [["Erro de Conexão"]];
+      }
     }
+    await context.sync();
   });
+}
+
+// --- UTILITÁRIOS ---
+
+function validarCpfCnpj(val) {
+  if (!val) return false;
+  // Validação básica de tamanho (pode ser expandida para algoritmo de dígitos)
+  return (val.length === 11 || val.length === 14);
+}
+
+async function syncData() {
+  // Função para o painel lateral carregar o Razão Contábil
+  const modulo = "list"; // Valor padrão
+  const res = await fetch(`${GOOGLE_WEBAPP_URL}?action=${modulo}`);
+  const responseData = await res.json();
+  // ... lógica de inserção na planilha conforme necessário
 }
