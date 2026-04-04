@@ -3,12 +3,17 @@ const GOOGLE_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbx6QhNdtZo9U1
 Office.onReady((info) => {
   if (info.host === Office.HostType.Excel) {
     $(document).ready(() => {
-      // Evento para o botão do painel lateral (se houver)
+      // 1. Reativa o botão do Painel Lateral
       $("#btn-sync").on("click", syncData);
+      
+      // 2. Associa as funções da Ribbon (sem duplicar o onReady)
+      Office.actions.associate("gerarTemplateAgentes", gerarTemplateAgentes);
+      Office.actions.associate("processarInclusoesAgentes", processarInclusoesAgentes);
+      
+      console.log("LG CFO: Motor e Ribbon unificados e prontos.");
     });
   }
 });
-
 // --- FUNÇÕES CHAMADAS PELA RIBBON ---
 
 async function gerarTemplateAgentes() {
