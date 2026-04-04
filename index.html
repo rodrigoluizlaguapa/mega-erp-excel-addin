@@ -10,13 +10,15 @@
     <link rel="stylesheet" href="taskpane.css" />
     <script type="text/javascript" src="taskpane.js"></script>
     
-    <script type="text/javascript">
-        // Registra as funções para a Ribbon encontrar
-        Office.onReady(() => {
+<script type="text/javascript">
+    Office.onReady((info) => {
+        if (info.host === Office.HostType.Excel) {
+            console.log("Registrando funções da Ribbon...");
             Office.actions.associate("gerarTemplateAgentes", gerarTemplateAgentes);
             Office.actions.associate("processarInclusoesAgentes", processarInclusoesAgentes);
-        });
-    </script>
+        }
+    });
+</script>
 </head>
 <body>
     <div id="container">
