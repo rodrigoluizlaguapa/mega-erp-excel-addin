@@ -81,7 +81,7 @@
           }
         });
 
-        async function syncData() {
+async function syncData() {
           try {
             $("#status").text("Consultando Razão Detalhado... Aguarde.");
             const modulo = $("#modulo").val();
@@ -92,12 +92,19 @@
             
             const res = await fetch(urlSemCache);
             const result = await res.json();
+            
+            // CAPTURANDO A VERSÃO (Seu pedido)
+            const versaoApi = result.versao || "Versão Fantasma";
             const payload = result.data;
 
             if (!payload || payload.length === 0) {
-              $("#status").text("Nenhum dado encontrado.");
+              $("#status").text(`[${versaoApi}] Nenhum dado encontrado.`);
               return;
             }
+
+            $("#status").text(`[${versaoApi}] Dados recebidos! Desenhando tabela...`);
+            
+            let totalLinhas = 0; // Variável criada no lugar certo para não dar erro
 
             await Excel.run(async (context) => {
               let sheetName = "Razao_Detalhado";
@@ -143,17 +150,23 @@
                 }
               });
 
+              totalLinhas = dadosParaExcel.length - 1; // Guarda a contagem corretamente
+
               const range = sheet.getRangeByIndexes(0, 0, dadosParaExcel.length, dadosParaExcel[0].length);
               range.values = dadosParaExcel;
               
-              // O ERRO ESTAVA AQUI: Agora ele cria a matriz de formatação do tamanho exato da tabela
-              if (dadosParaExcel.length > 1) {
-                  const valorRange = sheet.getRangeByIndexes(1, 5, dadosParaExcel.length - 1, 1);
-                  let formatoMoeda = [];
-                  for(let i = 0; i < dadosParaExcel.length - 1; i++) {
-                      formatoMoeda.push(["#,##0.00"]);
+              // Bloco de formatação protegido
+              try {
+                  if (totalLinhas > 0) {
+                      const valorRange = sheet.getRangeByIndexes(1, 5, totalLinhas, 1);
+                      let formatoMoeda = [];
+                      for(let i = 0; i < totalLinhas; i++) {
+                          formatoMoeda.push(["#,##0.00"]);
+                      }
+                      valorRange.numberFormat = formatoMoeda;
                   }
-                  valorRange.numberFormat = formatoMoeda;
+              } catch(e) {
+                  console.log("Aviso formatação:", e);
               }
 
               range.format.autofitColumns();
@@ -164,10 +177,10 @@
               await context.sync();
             });
 
-            $("#status").text(`Sucesso! ${dadosParaExcel.length - 1} linhas contábeis geradas.`);
+            // A MENSAGEM FINAL AGORA VAI FUNCIONAR E MOSTRAR A VERSÃO
+            $("#status").text(`[${versaoApi}] Sucesso! ${totalLinhas} linhas na tela.`);
           } catch (error) {
-            console.error(error);
-            $("#status").text("Erro interno ao montar a planilha.");
+            $("#status").text(`Erro Excel: ${error.message || "Falha na criação da aba."}`);
           }
         }
 
