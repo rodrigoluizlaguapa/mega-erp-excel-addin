@@ -480,8 +480,6 @@
                 headerRange.format.font.name  = "Segoe UI";
                 headerRange.format.font.size  = 10;
 
-                const view = context.workbook.views.getActiveView();
-                view.freezeRows = 1;
                 range.format.autofitColumns();
 
                 await context.sync();
@@ -617,8 +615,6 @@
 
                 sheet.getRangeByIndexes(0, 0, 1 + exemplos.length, colunasTemplate.length)
                      .format.autofitColumns();
-                const view = context.workbook.views.getActiveView();
-                view.freezeRows = 1;
 
                 await context.sync();
             });
@@ -715,6 +711,3 @@
     </script>
 </body>
 </html>
-```
-
-Pronto! É só selecionar tudo, copiar e colar no seu arquivo. Qualquer ajuste é só falar.
