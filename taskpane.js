@@ -1,4 +1,4 @@
-const GOOGLE_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbwcNC5muN0LUsOeF2Ff1XXDFR22ZDnt10e5d7PazoElXvgs5q6rKuZSODop3IrHrALK/exec";
+const GOOGLE_WEBAPP_URL = "http://localhost:3000";
 
 Office.onReady((info) => {
   if (info.host === Office.HostType.Excel) {
