@@ -336,7 +336,7 @@
     // ─────────────────────────────────────────────
     const GOOGLE_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbzObb1ErTCAJ_1HM-36IC_W9181dC97ID7x2MHwNQiw8q8L8tDiOFSiVzzQkTfRP_JI/exec";
 
-    const HEADERS_RAZAO  = ["DATA","LOTE","DOCUMENTO","CONTA","DESC_CONTA","VALOR","D/C","HISTORICO","CENTRO_CUSTO","PROJETO","AGENTE"];
+    const HEADERS_RAZAO = ["DATA","LOTE","DOCUMENTO","DOC_FISCAL","DATA_DOC","CONTA","DESC_CONTA","VALOR","D/C","HISTORICO","CENTRO_CUSTO","PROJETO","AGENTE"];
     const HEADERS_AGENTE = ["CODIGO","NOME","TIPO","CPF_CNPJ","EMAIL","TELEFONE","ATIVO"];
 
     // ─────────────────────────────────────────────
@@ -469,7 +469,7 @@
                 range.values = dadosParaExcel;
 
                 if (modulo === "list" && totalLinhas > 0) {
-                    const valorRange = sheet.getRangeByIndexes(1, 5, totalLinhas, 1);
+                    const valorRange = sheet.getRangeByIndexes(1, 7, totalLinhas, 1);
                     valorRange.numberFormat = Array(totalLinhas).fill(["#,##0.00"]);
                 }
 
@@ -501,61 +501,100 @@
     // ─────────────────────────────────────────────
     // MONTADORES DE TABELA
     // ─────────────────────────────────────────────
-    function montarTabelaRazao(payload) {
-        const rows = [HEADERS_RAZAO];
+function montarTabelaRazao(payload) {
+    const rows = [HEADERS_RAZAO];
 
-        payload.forEach(lanc => {
-            if (!lanc.Itens || lanc.Itens.length === 0) {
-                rows.push([lanc.Data || "", lanc.CodigoLote || "", lanc.Codigo || "",
-                    "SEM ITENS", "", 0, "", "", "", "", ""]);
-                return;
+    payload.forEach(lanc => {
+        if (!lanc.Itens || lanc.Itens.length === 0) {
+            rows.push([
+                lanc.Data || "", lanc.CodigoLote || "", lanc.Codigo || "",
+                "", "", "SEM ITENS", "", 0, "", "", "", "", ""
+            ]);
+            return;
+        }
+
+        lanc.Itens.forEach(item => {
+            const valor = parseFloat(item.Valor || item.ValorLancamento) || 0;
+
+            // Histórico / Complemento
+            let hist = item.Complemento || item.Historico || "";
+            if (typeof hist === "object") hist = hist.Descricao || "";
+
+            // Documento fiscal (número do doc na tela do ERP)
+            let docFiscal = item.Documento?.Numero
+                         || item.Documento?.Codigo
+                         || item.NumeroDocumento
+                         || "";
+
+            let dataDoc = item.Documento?.Data
+                       || item.DataDocumento
+                       || "";
+
+            // Centro de Custo
+            let cc = "";
+            if (item.RateiosCentroCusto?.length > 0)
+                cc = item.RateiosCentroCusto[0].CentroCusto?.Extenso
+                  || item.RateiosCentroCusto[0].CentroCusto?.Reduzido
+                  || item.RateiosCentroCusto[0].CentroCusto?.Nome
+                  || "";
+
+            // Projeto
+            let proj = "";
+            if (item.RateiosProjeto?.length > 0)
+                proj = item.RateiosProjeto[0].Projeto?.Extenso
+                     || item.RateiosProjeto[0].Projeto?.Reduzido
+                     || item.RateiosProjeto[0].Projeto?.Nome
+                     || "";
+
+            // Agente
+            let agente = item.Agente?.Nome
+                      || item.Agente?.NomeRazao
+                      || item.NomeAgente
+                      || "";
+            if (typeof agente === "object") agente = agente.Nome || "";
+
+            const base = [
+                lanc.Data        || "",
+                lanc.CodigoLote  || "",
+                lanc.Codigo      || "",
+                docFiscal,
+                dataDoc
+            ];
+
+            let temLinha = false;
+
+            // Linha de Débito
+            if (item.ContaDebito) {
+                rows.push([...base,
+                    item.ContaDebito.Extenso || item.ContaDebito.Reduzido || "",
+                    item.ContaDebito.Descricao || "",
+                    valor, "D", hist, cc, proj, agente
+                ]);
+                temLinha = true;
             }
 
-            lanc.Itens.forEach(item => {
-                const valor = parseFloat(item.Valor || item.ValorLancamento) || 0;
+            // Linha de Crédito
+            if (item.ContaCredito) {
+                rows.push([...base,
+                    item.ContaCredito.Extenso || item.ContaCredito.Reduzido || "",
+                    item.ContaCredito.Descricao || "",
+                    valor, "C", hist, cc, proj, agente
+                ]);
+                temLinha = true;
+            }
 
-                let hist = item.Complemento || item.Historico || "";
-                if (typeof hist === "object") hist = hist.Descricao || "";
-
-                let cc = "";
-                let proj = "";
-                if (item.RateiosCentroCusto?.length > 0)
-                    cc = item.RateiosCentroCusto[0].CentroCusto?.Nome
-                      || item.RateiosCentroCusto[0].CentroCusto?.Codigo || "";
-                if (item.RateiosProjeto?.length > 0)
-                    proj = item.RateiosProjeto[0].Projeto?.Nome
-                         || item.RateiosProjeto[0].Projeto?.Codigo || "";
-
-                let agente = item.Agente?.Nome || item.Agente?.NomeRazao || item.NomeAgente || "";
-                if (typeof agente === "object") agente = agente.Nome || "";
-
-                const base = [lanc.Data || "", lanc.CodigoLote || "", lanc.Codigo || ""];
-                let temLinha = false;
-
-                if (item.ContaDebito) {
-                    rows.push([...base,
-                        item.ContaDebito.Extenso || item.ContaDebito.Reduzido || "",
-                        item.ContaDebito.Descricao || "",
-                        valor, "D", hist, cc, proj, agente]);
-                    temLinha = true;
-                }
-                if (item.ContaCredito) {
-                    rows.push([...base,
-                        item.ContaCredito.Extenso || item.ContaCredito.Reduzido || "",
-                        item.ContaCredito.Descricao || "",
-                        valor, "C", hist, cc, proj, agente]);
-                    temLinha = true;
-                }
-
-                if (!temLinha) {
-                    rows.push([...base, "VERIFICAR LANÇAMENTO", "", valor, "", hist, cc, proj, agente]);
-                }
-            });
+            // Fallback: lançamento sem conta identificada
+            if (!temLinha) {
+                rows.push([...base,
+                    "VERIFICAR LANÇAMENTO", "", valor, "", hist, cc, proj, agente
+                ]);
+            }
         });
+    });
 
-        return rows;
-    }
-
+    return rows;
+}
+        
     function montarTabelaAgentes(payload) {
         const rows = [HEADERS_AGENTE];
         const lista = Array.isArray(payload) ? payload
