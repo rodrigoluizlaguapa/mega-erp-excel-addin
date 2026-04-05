@@ -1,4 +1,3 @@
-```html
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -481,7 +480,8 @@
                 headerRange.format.font.name  = "Segoe UI";
                 headerRange.format.font.size  = 10;
 
-                sheet.freezeRows(1);
+                const view = context.workbook.views.getActiveView();
+                view.freezeRows = 1;
                 range.format.autofitColumns();
 
                 await context.sync();
@@ -617,7 +617,8 @@
 
                 sheet.getRangeByIndexes(0, 0, 1 + exemplos.length, colunasTemplate.length)
                      .format.autofitColumns();
-                sheet.freezeRows(1);
+                const view = context.workbook.views.getActiveView();
+                view.freezeRows = 1;
 
                 await context.sync();
             });
