@@ -20,7 +20,7 @@ async function syncData() {
     const dataFim = $("#data-fim").val();
 
     // 1. Busca os dados no Google
-    const res = await fetch(`${GOOGLE_WEBAPP_URL}?action=${modulo}&inicio=${dataInicio}&fim=${dataFim}`);
+    const res = await fetch(`${API_URL}/api/lancamentos?inicio=...&fim=...`);
     const rawText = await res.text();
     
     let result;
