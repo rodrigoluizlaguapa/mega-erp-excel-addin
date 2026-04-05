@@ -93,7 +93,6 @@
             const res = await fetch(urlSemCache);
             const result = await res.json();
             
-            // Aqui pegamos a versão que o Google enviar!
             const versaoApi = result.versao || "Versão Fantasma";
             const payload = result.data;
 
@@ -120,20 +119,44 @@
               payload.forEach(lanc => {
                 if (lanc.Itens && lanc.Itens.length > 0) {
                   lanc.Itens.forEach(item => {
-                    let valor = parseFloat(item.Valor) || 0; 
-                    let centroCusto = item.CodigoCentroCusto || item.CentroCusto || "";
-                    let projeto = item.CodigoProjeto || item.Projeto || "";
-                    let agente = item.NomeAgente || item.CodigoAgente || item.Agente || "";
+                    
+                    let valor = parseFloat(item.ValorLancamento || item.Valor) || 0; 
+                    
+                    // Tratando subpastas do Mega
+                    let objConta = item.Contas || item.Conta || {};
+                    let conta = objConta.ContaContabil || objConta.Codigo || item.ContaContabil || item.EstruturaContabil || "";
+                    let descConta = objConta.Descricao || objConta.Nome || item.DescricaoContaContabil || "";
 
-                    if (typeof centroCusto === 'object') centroCusto = centroCusto.Nome || centroCusto.Codigo || "";
-                    if (typeof projeto === 'object') projeto = projeto.Nome || projeto.Codigo || "";
-                    if (typeof agente === 'object') agente = agente.Nome || agente.Codigo || "";
+                    let objHist = item.Historico || {};
+                    let hist = objHist.Descricao || objHist.Historico || item.Historico || "";
+
+                    let tipo = item.Natureza || item.DebitoCredito || item.TipoLancamento || "";
+                    
+                    let objAgente = item.Agente || {};
+                    let agente = objAgente.Nome || objAgente.NomeRazao || item.NomeAgente || "";
+                    if(typeof agente === 'object') agente = agente.Nome || "";
+
+                    // Tratando os Rateios que vêm como listas
+                    let cc = "";
+                    if (item.RateiosCentroCusto && item.RateiosCentroCusto.length > 0) {
+                        cc = item.RateiosCentroCusto[0].CentroCusto?.Nome || item.RateiosCentroCusto[0].CentroCusto?.Codigo || "";
+                    }
+
+                    let proj = "";
+                    if (item.RateiosProjeto && item.RateiosProjeto.length > 0) {
+                        proj = item.RateiosProjeto[0].Projeto?.Nome || item.RateiosProjeto[0].Projeto?.Codigo || "";
+                    }
+
+                    // O RAIO-X: Se a conta ainda estiver vazia, imprime TUDO que o Mega mandou na coluna DESC_CONTA
+                    if (!conta && !descConta) {
+                        descConta = JSON.stringify(item).substring(0, 500); 
+                    }
 
                     dadosParaExcel.push([
                       lanc.Data || "", lanc.CodigoLote || "", lanc.Codigo || "",
-                      item.EstruturaContabil || "", item.DescricaoContaContabil || "",
-                      valor, item.TipoLancamento || "", item.Historico || "",
-                      centroCusto, projeto, agente
+                      conta, descConta,
+                      valor, tipo, hist,
+                      cc, proj, agente
                     ]);
                   });
                 } else {
@@ -162,15 +185,14 @@
               await context.sync();
             });
 
-            // MENSAGEM FINAL COM A VERSÃO CARIMBADA!
             $("#status").text(`[${versaoApi}] Sucesso! ${totalLinhas} linhas geradas.`);
           } catch (error) {
-            $("#status").text(`Erro Novo: ${error.message}`);
+            $("#status").text(`Erro: ${error.message}`);
           }
         }
 
-        async function gerarTemplateAgentes() { /* ... Ocultado para espaço, continua igual ... */ }
-        async function processarInclusoesAgentes() { /* ... Ocultado para espaço, continua igual ... */ }
+        async function gerarTemplateAgentes() { /* ... Ocultado ... */ }
+        async function processarInclusoesAgentes() { /* ... Ocultado ... */ }
     </script>
 </body>
 </html>
