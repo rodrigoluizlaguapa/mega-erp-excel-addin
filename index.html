@@ -1,198 +1,719 @@
+```html
 <!DOCTYPE html>
-<html>
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>LG CFO - Mega ERP</title>
     <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
     <script type="text/javascript" src="https://ajax.aspnetcdn.com/ajax/jQuery/jquery-3.6.0.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 0; margin: 0; background: #f3f2f1; }
-        .tabs { display: flex; background: #fff; border-bottom: 1px solid #ccc; }
-        .tab { flex: 1; padding: 12px 0; text-align: center; cursor: pointer; font-size: 13px; font-weight: bold; color: #666; border-bottom: 3px solid transparent; }
-        .tab.active { color: #0078d4; border-bottom: 3px solid #0078d4; }
-        .content { display: none; padding: 15px; background: #fff; } 
+        :root {
+            --blue:       #0078d4;
+            --blue-dark:  #005a9e;
+            --blue-pale:  #e8f4fd;
+            --green:      #107c41;
+            --green-dark: #0d6534;
+            --orange:     #c84b00;
+            --orange-dark:#a33b00;
+            --red-pale:   #fdf0ee;
+            --red-text:   #7a1a00;
+            --red-border: #f0b8a8;
+            --ok-pale:    #edf7f0;
+            --ok-text:    #0d4a21;
+            --ok-border:  #a8d8b8;
+            --warn-pale:  #fff8e6;
+            --warn-text:  #7a5000;
+            --warn-border:#f0d88a;
+            --bg:         #f5f5f5;
+            --surface:    #ffffff;
+            --border:     #d0d0d0;
+            --text:       #1a1a1a;
+            --text-muted: #666666;
+            --radius:     6px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 13px;
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ── HEADER ── */
+        .header {
+            background: var(--blue);
+            padding: 10px 14px 8px;
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+        .header-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: 0.02em;
+        }
+        .header-sub {
+            font-family: 'DM Mono', monospace;
+            font-size: 10px;
+            color: rgba(255,255,255,0.65);
+            letter-spacing: 0.04em;
+        }
+
+        /* ── TABS ── */
+        .tabs {
+            display: flex;
+            background: var(--surface);
+            border-bottom: 2px solid var(--border);
+            flex-shrink: 0;
+        }
+        .tab {
+            flex: 1;
+            padding: 10px 0;
+            text-align: center;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-muted);
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+            letter-spacing: 0.06em;
+            transition: color 0.15s, border-color 0.15s;
+        }
+        .tab:hover { color: var(--blue); }
+        .tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+
+        /* ── STATUS BAR ── */
+        #status {
+            margin: 12px 14px 0;
+            font-size: 12px;
+            font-weight: 500;
+            padding: 9px 12px;
+            border-radius: var(--radius);
+            border: 1px solid var(--blue-pale);
+            background: var(--blue-pale);
+            color: var(--blue-dark);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-height: 38px;
+            transition: background 0.25s, color 0.25s, border-color 0.25s;
+            flex-shrink: 0;
+        }
+        #status.loading { background: var(--warn-pale); color: var(--warn-text); border-color: var(--warn-border); }
+        #status.sucesso { background: var(--ok-pale);   color: var(--ok-text);   border-color: var(--ok-border); }
+        #status.erro    { background: var(--red-pale);  color: var(--red-text);  border-color: var(--red-border); }
+
+        .spinner {
+            width: 14px; height: 14px;
+            border: 2px solid currentColor;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            display: none;
+            flex-shrink: 0;
+        }
+        #status.loading .spinner { display: block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── CONTENT PANELS ── */
+        .content { display: none; padding: 14px; flex: 1; overflow-y: auto; }
         .content.active { display: block; }
-        .form-group { margin-bottom: 15px; }
-        label { font-size: 12px; font-weight: bold; display: block; margin-bottom: 5px; color: #333; }
-        select, input { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
-        .btn { background: #0078d4; color: white; border: none; padding: 10px; width: 100%; cursor: pointer; font-weight: bold; border-radius: 4px; margin-top: 10px; }
-        .btn:hover { background: #005a9e; }
-        .btn-green { background: #217346; }
-        .btn-green:hover { background: #1e6b40; }
-        .btn-orange { background: #d83b01; }
-        .btn-orange:hover { background: #ea4a1f; }
-        #status { margin: 15px; font-size: 13px; font-weight: bold; text-align: center; color: #004085; padding: 12px; background: #cce5ff; border-radius: 4px; border: 1px solid #b8daff; }
+
+        /* ── FORM ELEMENTS ── */
+        .form-group { margin-bottom: 13px; }
+        label {
+            font-size: 11px;
+            font-weight: 700;
+            display: block;
+            margin-bottom: 4px;
+            color: var(--text-muted);
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+        select, input[type="date"] {
+            width: 100%;
+            padding: 7px 9px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            font-family: 'DM Sans', sans-serif;
+            font-size: 13px;
+            color: var(--text);
+            background: var(--surface);
+            appearance: none;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        select:focus, input:focus {
+            outline: none;
+            border-color: var(--blue);
+            box-shadow: 0 0 0 3px rgba(0,120,212,0.15);
+        }
+        input.invalid { border-color: var(--orange); box-shadow: 0 0 0 3px rgba(200,75,0,0.12); }
+
+        .date-row { display: flex; gap: 10px; }
+        .date-row .form-group { flex: 1; }
+
+        /* ── BUTTONS ── */
+        .btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            background: var(--blue);
+            color: #fff;
+            border: none;
+            padding: 10px 14px;
+            width: 100%;
+            cursor: pointer;
+            font-family: 'DM Sans', sans-serif;
+            font-weight: 700;
+            font-size: 12px;
+            letter-spacing: 0.04em;
+            border-radius: var(--radius);
+            margin-top: 10px;
+            transition: background 0.15s, opacity 0.15s, transform 0.1s;
+        }
+        .btn:hover:not(:disabled) { background: var(--blue-dark); transform: translateY(-1px); }
+        .btn:active:not(:disabled) { transform: translateY(0); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-green { background: var(--green); }
+        .btn-green:hover:not(:disabled) { background: var(--green-dark); }
+        .btn-orange { background: var(--orange); }
+        .btn-orange:hover:not(:disabled) { background: var(--orange-dark); }
+
+        /* ── DIVIDER ── */
+        .section-label {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin: 16px 0 6px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        /* ── AGENTES PANEL ── */
+        .agent-note {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 14px;
+            text-align: center;
+            line-height: 1.5;
+        }
+
+        /* ── PROGRESS BAR ── */
+        #progress-wrap {
+            margin: 10px 14px 0;
+            display: none;
+            flex-shrink: 0;
+        }
+        #progress-wrap.visible { display: block; }
+        #progress-bar-bg {
+            background: var(--border);
+            border-radius: 99px;
+            height: 4px;
+            overflow: hidden;
+        }
+        #progress-bar {
+            height: 100%;
+            width: 0%;
+            background: var(--blue);
+            border-radius: 99px;
+            transition: width 0.3s ease;
+        }
+        #progress-label {
+            font-size: 10px;
+            color: var(--text-muted);
+            font-family: 'DM Mono', monospace;
+            text-align: right;
+            margin-top: 3px;
+        }
+
+        /* ── VERSION BADGE ── */
+        .version-badge {
+            font-family: 'DM Mono', monospace;
+            font-size: 9px;
+            background: rgba(0,0,0,0.08);
+            color: var(--text-muted);
+            padding: 2px 6px;
+            border-radius: 99px;
+            margin: 6px 14px;
+            display: inline-block;
+            flex-shrink: 0;
+        }
     </style>
 </head>
 <body>
+
+    <div class="header">
+        <span class="header-title">LG CFO</span>
+        <span class="header-sub">MEGA ERP CONNECTOR</span>
+    </div>
+
     <div class="tabs">
         <div class="tab active" onclick="switchTab('relat', this)">RELATÓRIOS</div>
         <div class="tab" onclick="switchTab('agnt', this)">AGENTES</div>
     </div>
 
-    <div id="status">Pronto para operar.</div>
+    <div id="status" class="info">
+        <div class="spinner"></div>
+        <span id="status-text">Pronto para operar.</span>
+    </div>
 
+    <div id="progress-wrap">
+        <div id="progress-bar-bg"><div id="progress-bar"></div></div>
+        <div id="progress-label">0%</div>
+    </div>
+
+    <!-- ── RELATÓRIOS ── -->
     <div id="relat" class="content active">
+
         <div class="form-group">
-            <label>Módulo:</label>
+            <label>Módulo</label>
             <select id="modulo">
                 <option value="list">Razão Contábil</option>
                 <option value="agentes">Lista de Agentes</option>
             </select>
         </div>
-        <div style="display:flex; gap:10px;">
-            <div class="form-group" style="flex:1;">
-                <label>Data Início:</label>
-                <input type="date" id="data-inicio" value="2026-03-01">
+
+        <div class="date-row">
+            <div class="form-group">
+                <label>Data Início</label>
+                <input type="date" id="data-inicio">
             </div>
-            <div class="form-group" style="flex:1;">
-                <label>Data Fim:</label>
-                <input type="date" id="data-fim" value="2026-03-31">
+            <div class="form-group">
+                <label>Data Fim</label>
+                <input type="date" id="data-fim">
             </div>
         </div>
-        <button id="btn-sync" class="btn">Baixar para o Excel</button>
+
+        <button id="btn-sync" class="btn">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 8a7 7 0 0 1 12-4.9"/><path d="M15 8a7 7 0 0 1-12 4.9"/>
+                <polyline points="12 3 12 7 16 7"/><polyline points="4 13 4 9 0 9"/>
+            </svg>
+            Baixar para o Excel
+        </button>
     </div>
 
+    <!-- ── AGENTES ── -->
     <div id="agnt" class="content">
-        <p style="font-size: 12px; color: #666; margin-top: 0;">Cadastro em Massa no Mega ERP:</p>
-        <button id="btn-template" class="btn btn-green">1. Gerar Template de Carga</button>
-        <button id="btn-enviar" class="btn btn-orange">2. Enviar p/ Mega ERP</button>
-        <p style="font-size: 11px; color: #999; margin-top: 15px; text-align: center;">O status aparecerá na planilha.</p>
+        <div class="section-label">Cadastro em Massa</div>
+
+        <button id="btn-template" class="btn btn-green">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="2" width="12" height="12" rx="1"/><line x1="5" y1="8" x2="11" y2="8"/><line x1="8" y1="5" x2="8" y2="11"/>
+            </svg>
+            1. Gerar Template de Carga
+        </button>
+
+        <button id="btn-enviar" class="btn btn-orange" style="margin-top:8px;">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="2" y1="8" x2="14" y2="8"/><polyline points="9 3 14 8 9 13"/>
+            </svg>
+            2. Enviar p/ Mega ERP
+        </button>
+
+        <p class="agent-note">
+            Preencha o template gerado na Etapa 1<br>
+            e depois execute a Etapa 2 para importar.
+        </p>
     </div>
+
+    <span class="version-badge" id="version-badge">—</span>
 
     <script>
-        function switchTab(id, el) {
-            $('.content').removeClass('active');
-            $('.tab').removeClass('active');
-            $('#' + id).addClass('active');
-            $(el).addClass('active');
+    // ─────────────────────────────────────────────
+    // CONFIGURAÇÃO
+    // ─────────────────────────────────────────────
+    const GOOGLE_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbzciT5t9vTQHyrsYHt5KLUNsGJcFYX4wn0O9EwN5Jpa0msNX6hxpdNXDgBLuCSdgy_x/exec";
+
+    const HEADERS_RAZAO  = ["DATA","LOTE","DOCUMENTO","CONTA","DESC_CONTA","VALOR","D/C","HISTORICO","CENTRO_CUSTO","PROJETO","AGENTE"];
+    const HEADERS_AGENTE = ["CODIGO","NOME","TIPO","CPF_CNPJ","EMAIL","TELEFONE","ATIVO"];
+
+    // ─────────────────────────────────────────────
+    // UTILS
+    // ─────────────────────────────────────────────
+    function setStatus(msg, tipo = "info") {
+        $("#status").removeClass("info loading sucesso erro").addClass(tipo);
+        $("#status-text").text(msg);
+    }
+
+    function setProgress(pct, label) {
+        if (pct === null) {
+            $("#progress-wrap").removeClass("visible");
+            $("#progress-bar").css("width", "0%");
+        } else {
+            $("#progress-wrap").addClass("visible");
+            $("#progress-bar").css("width", pct + "%");
+            $("#progress-label").text(label || pct + "%");
+        }
+    }
+
+    function lockBtn(id, locked) {
+        const btn = $("#" + id);
+        btn.prop("disabled", locked);
+        if (id === "btn-sync") {
+            btn.html(locked
+                ? '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 8a7 7 0 0 1 12-4.9"/><path d="M15 8a7 7 0 0 1-12 4.9"/><polyline points="12 3 12 7 16 7"/><polyline points="4 13 4 9 0 9"/></svg> Buscando...'
+                : '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 8a7 7 0 0 1 12-4.9"/><path d="M15 8a7 7 0 0 1-12 4.9"/><polyline points="12 3 12 7 16 7"/><polyline points="4 13 4 9 0 9"/></svg> Baixar para o Excel'
+            );
+        }
+    }
+
+    function validarDatas() {
+        const ini = $("#data-inicio").val();
+        const fim = $("#data-fim").val();
+        const ok  = ini && fim && ini <= fim;
+        $("#data-inicio, #data-fim").toggleClass("invalid", !ok);
+        return ok;
+    }
+
+    function switchTab(id, el) {
+        $(".content").removeClass("active");
+        $(".tab").removeClass("active");
+        $("#" + id).addClass("active");
+        $(el).addClass("active");
+        setStatus("Pronto para operar.", "info");
+        setProgress(null);
+    }
+
+    // ─────────────────────────────────────────────
+    // INICIALIZAÇÃO
+    // ─────────────────────────────────────────────
+    Office.onReady((info) => {
+        if (info.host === Office.HostType.Excel) {
+            const hoje     = new Date();
+            const primeiro = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+            const ultimo   = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+            const fmt      = d => d.toISOString().split("T")[0];
+            $("#data-inicio").val(fmt(primeiro));
+            $("#data-fim").val(fmt(ultimo));
+
+            $("#data-inicio, #data-fim").on("change", validarDatas);
+
+            $("#btn-sync").on("click", syncData);
+            $("#btn-template").on("click", gerarTemplateAgentes);
+            $("#btn-enviar").on("click", processarInclusoesAgentes);
+        }
+    });
+
+    // ─────────────────────────────────────────────
+    // SYNC — RAZÃO CONTÁBIL / AGENTES
+    // ─────────────────────────────────────────────
+    async function syncData() {
+        if (!validarDatas()) {
+            setStatus("Data Fim não pode ser anterior à Data Início.", "erro");
+            return;
         }
 
-        const GOOGLE_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbwuatQ5KFN6fYHlBns6WFkrFiK1xhcGyan_GOGF0xKFeVz5E0rZlflX5WFdIv63Y-Uq/exec";
+        lockBtn("btn-sync", true);
+        setStatus("Consultando Mega ERP via Google Apps Script...", "loading");
+        setProgress(10, "Conectando...");
 
-        Office.onReady((info) => {
-          if (info.host === Office.HostType.Excel) {
-            $(document).ready(() => {
-              $("#btn-sync").on("click", syncData);
-              $("#btn-template").on("click", gerarTemplateAgentes);
-              $("#btn-enviar").on("click", processarInclusoesAgentes);
-            });
-          }
-        });
-
-        async function syncData() {
-          try {
-            $("#status").text("Consultando Razão Detalhado... Aguarde.");
-            const modulo = $("#modulo").val();
+        try {
+            const modulo     = $("#modulo").val();
             const dataInicio = $("#data-inicio").val();
-            const dataFim = $("#data-fim").val();
+            const dataFim    = $("#data-fim").val();
+            const url        = `${GOOGLE_WEBAPP_URL}?action=${modulo}&inicio=${dataInicio}&fim=${dataFim}&nocache=${Date.now()}`;
 
-            const urlSemCache = `${GOOGLE_WEBAPP_URL}?action=${modulo}&inicio=${dataInicio}&fim=${dataFim}&nocache=${new Date().getTime()}`;
-            
-            const res = await fetch(urlSemCache);
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`HTTP ${res.status}: falha na requisição ao servidor.`);
+
+            setProgress(40, "Processando resposta...");
             const result = await res.json();
-            
-            const versaoApi = result.versao || "Versão Fantasma";
+
+            if (!result.success) throw new Error(result.error || "Erro desconhecido no servidor.");
+
+            const versao  = result.versao || "—";
             const payload = result.data;
+            $("#version-badge").text(versao);
 
             if (!payload || payload.length === 0) {
-              $("#status").text(`[${versaoApi}] Nenhum dado encontrado.`);
-              return;
+                setStatus("Nenhum dado encontrado para o período.", "info");
+                setProgress(null);
+                lockBtn("btn-sync", false);
+                return;
             }
 
-            $("#status").text(`[${versaoApi}] Montando a planilha...`);
+            setProgress(60, "Montando planilha...");
+            setStatus("Gravando dados no Excel...", "loading");
+
             let totalLinhas = 0;
 
             await Excel.run(async (context) => {
-              let sheetName = "Razao_Detalhado";
-              let sheet = context.workbook.worksheets.getItemOrNullObject(sheetName);
-              await context.sync();
-              
-              if (sheet.isNullObject) sheet = context.workbook.worksheets.add(sheetName);
-              else sheet.getUsedRange().clear();
-              sheet.activate();
+                const sheetName = modulo === "agentes" ? "Agentes" : "Razao_Detalhado";
+                let sheet = context.workbook.worksheets.getItemOrNullObject(sheetName);
+                await context.sync();
 
-              let headers = ["DATA", "LOTE", "DOCUMENTO", "CONTA", "DESC_CONTA", "VALOR", "D/C", "HISTORICO", "CENTRO_CUSTO", "PROJETO", "AGENTE"];
-              let dadosParaExcel = [headers];
+                if (sheet.isNullObject) sheet = context.workbook.worksheets.add(sheetName);
+                else sheet.getUsedRange().clear();
+                sheet.activate();
 
-              payload.forEach(lanc => {
-                if (lanc.Itens && lanc.Itens.length > 0) {
-                  lanc.Itens.forEach(item => {
-                    
-                    let valor = parseFloat(item.ValorLancamento || item.Valor) || 0; 
-                    
-                    // Tratando subpastas do Mega
-                    let objConta = item.Contas || item.Conta || {};
-                    let conta = objConta.ContaContabil || objConta.Codigo || item.ContaContabil || item.EstruturaContabil || "";
-                    let descConta = objConta.Descricao || objConta.Nome || item.DescricaoContaContabil || "";
+                let dadosParaExcel = modulo === "agentes"
+                    ? montarTabelaAgentes(payload)
+                    : montarTabelaRazao(payload);
 
-                    let objHist = item.Historico || {};
-                    let hist = objHist.Descricao || objHist.Historico || item.Historico || "";
+                totalLinhas = dadosParaExcel.length - 1;
+                const numCols = dadosParaExcel[0].length;
 
-                    let tipo = item.Natureza || item.DebitoCredito || item.TipoLancamento || "";
-                    
-                    let objAgente = item.Agente || {};
-                    let agente = objAgente.Nome || objAgente.NomeRazao || item.NomeAgente || "";
-                    if(typeof agente === 'object') agente = agente.Nome || "";
+                const range = sheet.getRangeByIndexes(0, 0, dadosParaExcel.length, numCols);
+                range.values = dadosParaExcel;
 
-                    // Tratando os Rateios que vêm como listas
-                    let cc = "";
-                    if (item.RateiosCentroCusto && item.RateiosCentroCusto.length > 0) {
-                        cc = item.RateiosCentroCusto[0].CentroCusto?.Nome || item.RateiosCentroCusto[0].CentroCusto?.Codigo || "";
-                    }
-
-                    let proj = "";
-                    if (item.RateiosProjeto && item.RateiosProjeto.length > 0) {
-                        proj = item.RateiosProjeto[0].Projeto?.Nome || item.RateiosProjeto[0].Projeto?.Codigo || "";
-                    }
-
-                    // O RAIO-X: Se a conta ainda estiver vazia, imprime TUDO que o Mega mandou na coluna DESC_CONTA
-                    if (!conta && !descConta) {
-                        descConta = JSON.stringify(item).substring(0, 500); 
-                    }
-
-                    dadosParaExcel.push([
-                      lanc.Data || "", lanc.CodigoLote || "", lanc.Codigo || "",
-                      conta, descConta,
-                      valor, tipo, hist,
-                      cc, proj, agente
-                    ]);
-                  });
-                } else {
-                  dadosParaExcel.push([lanc.Data, lanc.CodigoLote, lanc.Codigo, "SEM ITENS", "", 0, "", "", "", "", ""]);
+                if (modulo === "list" && totalLinhas > 0) {
+                    const valorRange = sheet.getRangeByIndexes(1, 5, totalLinhas, 1);
+                    valorRange.numberFormat = Array(totalLinhas).fill(["#,##0.00"]);
                 }
-              });
 
-              totalLinhas = dadosParaExcel.length - 1;
-              const range = sheet.getRangeByIndexes(0, 0, dadosParaExcel.length, dadosParaExcel[0].length);
-              range.values = dadosParaExcel;
-              
-              try {
-                  if (totalLinhas > 0) {
-                      const valorRange = sheet.getRangeByIndexes(1, 5, totalLinhas, 1);
-                      let formatoMoeda = [];
-                      for(let i = 0; i < totalLinhas; i++) formatoMoeda.push(["#,##0.00"]);
-                      valorRange.numberFormat = formatoMoeda;
-                  }
-              } catch(e) { console.log(e); }
+                const headerRange = sheet.getRangeByIndexes(0, 0, 1, numCols);
+                headerRange.format.fill.color = "#0078d4";
+                headerRange.format.font.color = "#ffffff";
+                headerRange.format.font.bold  = true;
+                headerRange.format.font.name  = "Segoe UI";
+                headerRange.format.font.size  = 10;
 
-              range.format.autofitColumns();
-              sheet.getRange("A1:K1").format.fill.color = "#0078d4";
-              sheet.getRange("A1:K1").format.font.color = "white";
-              sheet.getRange("A1:K1").format.font.bold = true;
-              
-              await context.sync();
+                sheet.freezeRows(1);
+                range.format.autofitColumns();
+
+                await context.sync();
             });
 
-            $("#status").text(`[${versaoApi}] Sucesso! ${totalLinhas} linhas geradas.`);
-          } catch (error) {
-            $("#status").text(`Erro: ${error.message}`);
-          }
-        }
+            setProgress(100, "Concluído");
+            setStatus(`✓ ${totalLinhas} linha${totalLinhas !== 1 ? "s" : ""} importada${totalLinhas !== 1 ? "s" : ""} com sucesso.`, "sucesso");
+            setTimeout(() => setProgress(null), 1500);
 
-        async function gerarTemplateAgentes() { /* ... Ocultado ... */ }
-        async function processarInclusoesAgentes() { /* ... Ocultado ... */ }
+        } catch (error) {
+            setStatus(`Erro: ${error.message}`, "erro");
+            setProgress(null);
+            console.error("[LG CFO] Erro em syncData:", error);
+        } finally {
+            lockBtn("btn-sync", false);
+        }
+    }
+
+    // ─────────────────────────────────────────────
+    // MONTADORES DE TABELA
+    // ─────────────────────────────────────────────
+    function montarTabelaRazao(payload) {
+        const rows = [HEADERS_RAZAO];
+
+        payload.forEach(lanc => {
+            if (!lanc.Itens || lanc.Itens.length === 0) {
+                rows.push([lanc.Data || "", lanc.CodigoLote || "", lanc.Codigo || "",
+                    "SEM ITENS", "", 0, "", "", "", "", ""]);
+                return;
+            }
+
+            lanc.Itens.forEach(item => {
+                const valor = parseFloat(item.Valor || item.ValorLancamento) || 0;
+
+                let hist = item.Complemento || item.Historico || "";
+                if (typeof hist === "object") hist = hist.Descricao || "";
+
+                let cc = "";
+                let proj = "";
+                if (item.RateiosCentroCusto?.length > 0)
+                    cc = item.RateiosCentroCusto[0].CentroCusto?.Nome
+                      || item.RateiosCentroCusto[0].CentroCusto?.Codigo || "";
+                if (item.RateiosProjeto?.length > 0)
+                    proj = item.RateiosProjeto[0].Projeto?.Nome
+                         || item.RateiosProjeto[0].Projeto?.Codigo || "";
+
+                let agente = item.Agente?.Nome || item.Agente?.NomeRazao || item.NomeAgente || "";
+                if (typeof agente === "object") agente = agente.Nome || "";
+
+                const base = [lanc.Data || "", lanc.CodigoLote || "", lanc.Codigo || ""];
+                let temLinha = false;
+
+                if (item.ContaDebito) {
+                    rows.push([...base,
+                        item.ContaDebito.Extenso || item.ContaDebito.Reduzido || "",
+                        item.ContaDebito.Descricao || "",
+                        valor, "D", hist, cc, proj, agente]);
+                    temLinha = true;
+                }
+                if (item.ContaCredito) {
+                    rows.push([...base,
+                        item.ContaCredito.Extenso || item.ContaCredito.Reduzido || "",
+                        item.ContaCredito.Descricao || "",
+                        valor, "C", hist, cc, proj, agente]);
+                    temLinha = true;
+                }
+
+                if (!temLinha) {
+                    rows.push([...base, "VERIFICAR LANÇAMENTO", "", valor, "", hist, cc, proj, agente]);
+                }
+            });
+        });
+
+        return rows;
+    }
+
+    function montarTabelaAgentes(payload) {
+        const rows = [HEADERS_AGENTE];
+        const lista = Array.isArray(payload) ? payload
+                    : payload.items || payload.Items || payload.data || [payload];
+
+        lista.forEach(ag => {
+            rows.push([
+                ag.Codigo    || ag.Id          || "",
+                ag.Nome      || ag.NomeRazao   || "",
+                ag.Tipo      || ag.TipoAgente  || "",
+                ag.CpfCnpj   || ag.Documento   || "",
+                ag.Email     || "",
+                ag.Telefone  || ag.Celular     || "",
+                ag.Ativo !== undefined ? (ag.Ativo ? "Sim" : "Não") : ""
+            ]);
+        });
+
+        return rows;
+    }
+
+    // ─────────────────────────────────────────────
+    // AGENTES — TEMPLATE
+    // ─────────────────────────────────────────────
+    async function gerarTemplateAgentes() {
+        lockBtn("btn-template", true);
+        setStatus("Gerando template de carga...", "loading");
+        try {
+            await Excel.run(async (context) => {
+                const sheetName = "Template_Agentes";
+                let sheet = context.workbook.worksheets.getItemOrNullObject(sheetName);
+                await context.sync();
+
+                if (sheet.isNullObject) sheet = context.workbook.worksheets.add(sheetName);
+                else sheet.getUsedRange().clear();
+                sheet.activate();
+
+                const colunasTemplate = [
+                    "NOME_RAZAO", "TIPO", "CPF_CNPJ", "EMAIL",
+                    "TELEFONE", "ENDERECO", "MUNICIPIO", "UF", "CEP"
+                ];
+                const exemplos = [
+                    ["Empresa Exemplo Ltda", "J", "00.000.000/0001-00",
+                     "contato@exemplo.com.br", "(11) 99999-9999",
+                     "Rua das Flores, 100", "São Paulo", "SP", "01001-000"]
+                ];
+
+                const headerRange = sheet.getRangeByIndexes(0, 0, 1, colunasTemplate.length);
+                headerRange.values = [colunasTemplate];
+                headerRange.format.fill.color = "#107c41";
+                headerRange.format.font.color = "#ffffff";
+                headerRange.format.font.bold  = true;
+
+                const exRange = sheet.getRangeByIndexes(1, 0, exemplos.length, colunasTemplate.length);
+                exRange.values = exemplos;
+                exRange.format.font.italic = true;
+                exRange.format.font.color  = "#888888";
+
+                sheet.getRangeByIndexes(0, 0, 1 + exemplos.length, colunasTemplate.length)
+                     .format.autofitColumns();
+                sheet.freezeRows(1);
+
+                await context.sync();
+            });
+
+            setStatus("✓ Template gerado na aba 'Template_Agentes'. Preencha e use a Etapa 2.", "sucesso");
+        } catch (error) {
+            setStatus(`Erro ao gerar template: ${error.message}`, "erro");
+            console.error("[LG CFO] Erro em gerarTemplateAgentes:", error);
+        } finally {
+            lockBtn("btn-template", false);
+        }
+    }
+
+    // ─────────────────────────────────────────────
+    // AGENTES — ENVIO
+    // ─────────────────────────────────────────────
+    async function processarInclusoesAgentes() {
+        lockBtn("btn-enviar", true);
+        setStatus("Lendo planilha Template_Agentes...", "loading");
+        setProgress(5, "Lendo dados...");
+
+        try {
+            let agentes = [];
+
+            await Excel.run(async (context) => {
+                const sheet = context.workbook.worksheets.getItemOrNullObject("Template_Agentes");
+                await context.sync();
+                if (sheet.isNullObject) throw new Error("Aba 'Template_Agentes' não encontrada. Gere o template primeiro (Etapa 1).");
+
+                const usedRange = sheet.getUsedRange();
+                usedRange.load("values");
+                await context.sync();
+
+                const values = usedRange.values;
+                if (values.length < 2) throw new Error("Nenhum dado encontrado no template. Preencha ao menos uma linha.");
+
+                const headers = values[0];
+                agentes = values.slice(1)
+                    .filter(row => row.some(c => c !== "" && c !== null))
+                    .map(row => {
+                        const obj = {};
+                        headers.forEach((h, i) => { obj[h] = row[i] || ""; });
+                        return obj;
+                    });
+            });
+
+            if (agentes.length === 0) throw new Error("Nenhum agente válido encontrado no template.");
+
+            setStatus(`Enviando ${agentes.length} agente(s) para o Mega ERP...`, "loading");
+            setProgress(30, `0 / ${agentes.length}`);
+
+            const res = await fetch(GOOGLE_WEBAPP_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "incluirAgentes", agentes })
+            });
+
+            if (!res.ok) throw new Error(`HTTP ${res.status}: falha na comunicação com o servidor.`);
+
+            setProgress(80, "Processando retorno...");
+            const result = await res.json();
+            if (!result.success) throw new Error(result.error || "Erro no servidor ao incluir agentes.");
+
+            const ok   = result.incluidos || 0;
+            const fail = result.erros     || 0;
+
+            await Excel.run(async (context) => {
+                const sheet = context.workbook.worksheets.getItem("Template_Agentes");
+                const colResult = sheet.getRangeByIndexes(0, 9, 1, 1);
+                colResult.values = [["STATUS_IMPORTACAO"]];
+                colResult.format.fill.color = "#107c41";
+                colResult.format.font.color = "#ffffff";
+                colResult.format.font.bold  = true;
+
+                if (result.resultados && result.resultados.length > 0) {
+                    const statusRange = sheet.getRangeByIndexes(1, 9, result.resultados.length, 1);
+                    statusRange.values = result.resultados.map(r => [r.status || "OK"]);
+                }
+                await context.sync();
+            });
+
+            setProgress(100, "Concluído");
+            setStatus(`✓ ${ok} incluído(s) | ${fail} erro(s). Veja coluna STATUS_IMPORTACAO.`, ok > 0 ? "sucesso" : "erro");
+            setTimeout(() => setProgress(null), 1500);
+
+        } catch (error) {
+            setStatus(`Erro: ${error.message}`, "erro");
+            setProgress(null);
+            console.error("[LG CFO] Erro em processarInclusoesAgentes:", error);
+        } finally {
+            lockBtn("btn-enviar", false);
+        }
+    }
     </script>
 </body>
 </html>
+```
+
+Pronto! É só selecionar tudo, copiar e colar no seu arquivo. Qualquer ajuste é só falar.
