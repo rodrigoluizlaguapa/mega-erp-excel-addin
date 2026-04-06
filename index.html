@@ -45,7 +45,6 @@
             flex-direction: column;
         }
 
-        /* ── HEADER ── */
         .header {
             background: var(--blue);
             padding: 10px 14px 8px;
@@ -67,7 +66,6 @@
             letter-spacing: 0.04em;
         }
 
-        /* ── TABS ── */
         .tabs {
             display: flex;
             background: var(--surface);
@@ -90,7 +88,6 @@
         .tab:hover { color: var(--blue); }
         .tab.active { color: var(--blue); border-bottom-color: var(--blue); }
 
-        /* ── STATUS BAR ── */
         #status {
             margin: 12px 14px 0;
             font-size: 12px;
@@ -123,11 +120,9 @@
         #status.loading .spinner { display: block; }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* ── CONTENT PANELS ── */
         .content { display: none; padding: 14px; flex: 1; overflow-y: auto; }
         .content.active { display: block; }
 
-        /* ── FORM ELEMENTS ── */
         .form-group { margin-bottom: 13px; }
         label {
             font-size: 11px;
@@ -160,7 +155,6 @@
         .date-row { display: flex; gap: 10px; }
         .date-row .form-group { flex: 1; }
 
-        /* ── BUTTONS ── */
         .btn {
             display: flex;
             align-items: center;
@@ -188,7 +182,6 @@
         .btn-orange { background: var(--orange); }
         .btn-orange:hover:not(:disabled) { background: var(--orange-dark); }
 
-        /* ── DIVIDER ── */
         .section-label {
             font-size: 10px;
             font-weight: 700;
@@ -200,7 +193,6 @@
             border-bottom: 1px solid var(--border);
         }
 
-        /* ── AGENTES PANEL ── */
         .agent-note {
             font-size: 11px;
             color: var(--text-muted);
@@ -209,7 +201,6 @@
             line-height: 1.5;
         }
 
-        /* ── PROGRESS BAR ── */
         #progress-wrap {
             margin: 10px 14px 0;
             display: none;
@@ -237,7 +228,6 @@
             margin-top: 3px;
         }
 
-        /* ── VERSION BADGE ── */
         .version-badge {
             font-family: 'DM Mono', monospace;
             font-size: 9px;
@@ -273,9 +263,7 @@
         <div id="progress-label">0%</div>
     </div>
 
-    <!-- ── RELATÓRIOS ── -->
     <div id="relat" class="content active">
-
         <div class="form-group">
             <label>Módulo</label>
             <select id="modulo">
@@ -283,7 +271,6 @@
                 <option value="agentes">Lista de Agentes</option>
             </select>
         </div>
-
         <div class="date-row">
             <div class="form-group">
                 <label>Data Início</label>
@@ -294,7 +281,6 @@
                 <input type="date" id="data-fim">
             </div>
         </div>
-
         <button id="btn-sync" class="btn">
             <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M1 8a7 7 0 0 1 12-4.9"/><path d="M15 8a7 7 0 0 1-12 4.9"/>
@@ -304,24 +290,20 @@
         </button>
     </div>
 
-    <!-- ── AGENTES ── -->
     <div id="agnt" class="content">
         <div class="section-label">Cadastro em Massa</div>
-
         <button id="btn-template" class="btn btn-green">
             <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="2" y="2" width="12" height="12" rx="1"/><line x1="5" y1="8" x2="11" y2="8"/><line x1="8" y1="5" x2="8" y2="11"/>
             </svg>
             1. Gerar Template de Carga
         </button>
-
         <button id="btn-enviar" class="btn btn-orange" style="margin-top:8px;">
             <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="2" y1="8" x2="14" y2="8"/><polyline points="9 3 14 8 9 13"/>
             </svg>
             2. Enviar p/ Mega ERP
         </button>
-
         <p class="agent-note">
             Preencha o template gerado na Etapa 1<br>
             e depois execute a Etapa 2 para importar.
@@ -332,11 +314,11 @@
 
     <script>
     // ─────────────────────────────────────────────
-    // CONFIGURAÇÃO
+    // CONFIGURAÇÃO — atualize a URL a cada novo deploy
     // ─────────────────────────────────────────────
-    const GOOGLE_WEBAPP_URL = "http://localhost:3000";
+    const GOOGLE_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbzObb1ErTCAJ_1HM-36IC_W9181dC97ID7x2MHwNQiw8q8L8tDiOFSiVzzQkTfRP_JI/exec";
 
-    const HEADERS_RAZAO = ["DATA","LOTE","DOCUMENTO","DOC_FISCAL","DATA_DOC","CONTA","DESC_CONTA","VALOR","D/C","HISTORICO","CENTRO_CUSTO","PROJETO","AGENTE"];
+    const HEADERS_RAZAO  = ["DATA","LOTE","DOCUMENTO","DOC_FISCAL","DATA_DOC","CONTA","DESC_CONTA","VALOR","D/C","HISTORICO","CENTRO_CUSTO","PROJETO","AGENTE"];
     const HEADERS_AGENTE = ["CODIGO","NOME","TIPO","CPF_CNPJ","EMAIL","TELEFONE","ATIVO"];
 
     // ─────────────────────────────────────────────
@@ -386,6 +368,23 @@
         setProgress(null);
     }
 
+    function normalizarArray(data) {
+        if (Array.isArray(data))               return data;
+        if (data && Array.isArray(data.items)) return data.items;
+        if (data && Array.isArray(data.Items)) return data.Items;
+        if (data && Array.isArray(data.data))  return data.data;
+        if (data && (data.Id || data.id))      return [data];
+        return [];
+    }
+
+    function normalizarItens(detalhe) {
+        if (detalhe && Array.isArray(detalhe.Itens) && detalhe.Itens.length > 0) return detalhe.Itens;
+        if (detalhe && Array.isArray(detalhe.items) && detalhe.items.length > 0) return detalhe.items;
+        if (Array.isArray(detalhe) && detalhe.length > 0)                        return detalhe;
+        if (detalhe && (detalhe.ContaDebito || detalhe.ContaCredito))            return [detalhe];
+        return [];
+    }
+
     // ─────────────────────────────────────────────
     // INICIALIZAÇÃO
     // ─────────────────────────────────────────────
@@ -399,7 +398,6 @@
             $("#data-fim").val(fmt(ultimo));
 
             $("#data-inicio, #data-fim").on("change", validarDatas);
-
             $("#btn-sync").on("click", syncData);
             $("#btn-template").on("click", gerarTemplateAgentes);
             $("#btn-enviar").on("click", processarInclusoesAgentes);
@@ -407,7 +405,7 @@
     });
 
     // ─────────────────────────────────────────────
-    // SYNC — RAZÃO CONTÁBIL / AGENTES
+    // SYNC PRINCIPAL
     // ─────────────────────────────────────────────
     async function syncData() {
         if (!validarDatas()) {
@@ -416,75 +414,91 @@
         }
 
         lockBtn("btn-sync", true);
-        setStatus("Consultando Mega ERP via Google Apps Script...", "loading");
-        setProgress(10, "Conectando...");
+        setStatus("Buscando lançamentos...", "loading");
+        setProgress(5, "Conectando...");
 
         try {
             const modulo     = $("#modulo").val();
             const dataInicio = $("#data-inicio").val();
             const dataFim    = $("#data-fim").val();
-            const url        = `${GOOGLE_WEBAPP_URL}?action=${modulo}&inicio=${dataInicio}&fim=${dataFim}&nocache=${Date.now()}`;
 
-            const res = await fetch(url);
-            if (!res.ok) throw new Error(`HTTP ${res.status}: falha na requisição ao servidor.`);
-
-            setProgress(40, "Processando resposta...");
-            const result = await res.json();
-
-            if (!result.success) throw new Error(result.error || "Erro desconhecido no servidor.");
-
-            const versao  = result.versao || "—";
-            const payload = result.data;
-            $("#version-badge").text(versao);
-
-            if (!payload || payload.length === 0) {
-                setStatus("Nenhum dado encontrado para o período.", "info");
-                setProgress(null);
-                lockBtn("btn-sync", false);
-                return;
+            // ── AGENTES (fluxo simples) ──
+            if (modulo === "agentes") {
+                const url    = `${GOOGLE_WEBAPP_URL}?action=agentes&nocache=${Date.now()}`;
+                const res    = await fetch(url);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const result = await res.json();
+                if (!result.success) throw new Error(result.error);
+                $("#version-badge").text(result.versao || "—");
+                const payload = normalizarArray(result.data);
+                if (!payload.length) {
+                    setStatus("Nenhum agente encontrado.", "info");
+                    setProgress(null); lockBtn("btn-sync", false); return;
+                }
+                await gravarNoExcel("Agentes", montarTabelaAgentes(payload), null);
+                setStatus(`✓ ${payload.length} agente(s) importado(s).`, "sucesso");
+                setProgress(null); lockBtn("btn-sync", false); return;
             }
 
-            setProgress(60, "Montando planilha...");
-            setStatus("Gravando dados no Excel...", "loading");
+            // ── RAZÃO CONTÁBIL: ETAPA 1 — busca todas as páginas ──
+            let todosCabecalhos = [];
+            let page = 1;
+            const limit = 100;
 
-            let totalLinhas = 0;
+            while (true) {
+                const url = `${GOOGLE_WEBAPP_URL}?action=list&inicio=${dataInicio}&fim=${dataFim}&page=${page}&limit=${limit}&nocache=${Date.now()}`;
+                const res = await fetch(url);
+                if (!res.ok) throw new Error(`HTTP ${res.status} na página ${page}`);
+                const result = await res.json();
+                if (!result.success) throw new Error(result.error);
+                $("#version-badge").text(result.versao || "—");
 
-            await Excel.run(async (context) => {
-                const sheetName = modulo === "agentes" ? "Agentes" : "Razao_Detalhado";
-                let sheet = context.workbook.worksheets.getItemOrNullObject(sheetName);
-                await context.sync();
+                const pagina = normalizarArray(result.data);
+                todosCabecalhos = todosCabecalhos.concat(pagina);
+                setStatus(`Página ${page} — ${todosCabecalhos.length} lançamentos...`, "loading");
+                setProgress(Math.min(30, page * 3), `Página ${page}...`);
 
-                if (sheet.isNullObject) sheet = context.workbook.worksheets.add(sheetName);
-                else sheet.getUsedRange().clear();
-                sheet.activate();
+                if (pagina.length < limit) break;
+                page++;
+                if (page > 50) break;
+            }
 
-                let dadosParaExcel = modulo === "agentes"
-                    ? montarTabelaAgentes(payload)
-                    : montarTabelaRazao(payload);
+            setStatus(`${todosCabecalhos.length} lançamentos. Buscando detalhes...`, "loading");
+            setProgress(35, "Iniciando drilldown...");
 
-                totalLinhas = dadosParaExcel.length - 1;
-                const numCols = dadosParaExcel[0].length;
+            // ── ETAPA 2 — drilldown em lotes de 10 paralelos ──
+            const LOTE = 10;
+            let dadosParaExcel = [HEADERS_RAZAO];
 
-                const range = sheet.getRangeByIndexes(0, 0, dadosParaExcel.length, numCols);
-                range.values = dadosParaExcel;
+            for (let i = 0; i < todosCabecalhos.length; i += LOTE) {
+                const lote = todosCabecalhos.slice(i, i + LOTE);
 
-                if (modulo === "list" && totalLinhas > 0) {
-                    const valorRange = sheet.getRangeByIndexes(1, 7, totalLinhas, 1);
-                    valorRange.numberFormat = Array(totalLinhas).fill(["#,##0.00"]);
-                }
+                const promessas = lote.map(lanc => {
+                    const id = lanc.Id || lanc.id;
+                    if (!id) return Promise.resolve({ ...lanc, Itens: [] });
+                    const url = `${GOOGLE_WEBAPP_URL}?action=detalhe&id=${id}&nocache=${Date.now()}`;
+                    return fetch(url)
+                        .then(r => r.json())
+                        .then(r => ({ ...lanc, Itens: normalizarItens(r.data) }))
+                        .catch(() => ({ ...lanc, Itens: [] }));
+                });
 
-                const headerRange = sheet.getRangeByIndexes(0, 0, 1, numCols);
-                headerRange.format.fill.color = "#0078d4";
-                headerRange.format.font.color = "#ffffff";
-                headerRange.format.font.bold  = true;
-                headerRange.format.font.name  = "Segoe UI";
-                headerRange.format.font.size  = 10;
+                const resultados = await Promise.all(promessas);
+                resultados.forEach(lanc => {
+                    montarTabelaRazao([lanc]).slice(1).forEach(row => dadosParaExcel.push(row));
+                });
 
-                range.format.autofitColumns();
+                const pct = 35 + Math.round(((i + LOTE) / todosCabecalhos.length) * 60);
+                setProgress(Math.min(95, pct), `${Math.min(i + LOTE, todosCabecalhos.length)} / ${todosCabecalhos.length}`);
+                setStatus(`Processando ${Math.min(i + LOTE, todosCabecalhos.length)} de ${todosCabecalhos.length}...`, "loading");
+            }
 
-                await context.sync();
-            });
+            // ── ETAPA 3 — grava no Excel ──
+            setStatus("Gravando no Excel...", "loading");
+            setProgress(97, "Escrevendo planilha...");
+            await gravarNoExcel("Razao_Detalhado", dadosParaExcel, 7);
 
+            const totalLinhas = dadosParaExcel.length - 1;
             setProgress(100, "Concluído");
             setStatus(`✓ ${totalLinhas} linha${totalLinhas !== 1 ? "s" : ""} importada${totalLinhas !== 1 ? "s" : ""} com sucesso.`, "sucesso");
             setTimeout(() => setProgress(null), 1500);
@@ -492,7 +506,7 @@
         } catch (error) {
             setStatus(`Erro: ${error.message}`, "erro");
             setProgress(null);
-            console.error("[LG CFO] Erro em syncData:", error);
+            console.error("[LG CFO]", error);
         } finally {
             lockBtn("btn-sync", false);
         }
@@ -501,118 +515,114 @@
     // ─────────────────────────────────────────────
     // MONTADORES DE TABELA
     // ─────────────────────────────────────────────
-function montarTabelaRazao(payload) {
-    const rows = [HEADERS_RAZAO];
+    function montarTabelaRazao(payload) {
+        const rows = [HEADERS_RAZAO];
 
-    payload.forEach(lanc => {
-        if (!lanc.Itens || lanc.Itens.length === 0) {
-            rows.push([
-                lanc.Data || "", lanc.CodigoLote || "", lanc.Codigo || "",
-                "", "", "SEM ITENS", "", 0, "", "", "", "", ""
-            ]);
-            return;
-        }
-
-        lanc.Itens.forEach(item => {
-            const valor = parseFloat(item.Valor || item.ValorLancamento) || 0;
-
-            // Histórico / Complemento
-            let hist = item.Complemento || item.Historico || "";
-            if (typeof hist === "object") hist = hist.Descricao || "";
-
-            // Documento fiscal (número do doc na tela do ERP)
-            let docFiscal = item.Documento?.Numero
-                         || item.Documento?.Codigo
-                         || item.NumeroDocumento
-                         || "";
-
-            let dataDoc = item.Documento?.Data
-                       || item.DataDocumento
-                       || "";
-
-            // Centro de Custo
-            let cc = "";
-            if (item.RateiosCentroCusto?.length > 0)
-                cc = item.RateiosCentroCusto[0].CentroCusto?.Extenso
-                  || item.RateiosCentroCusto[0].CentroCusto?.Reduzido
-                  || item.RateiosCentroCusto[0].CentroCusto?.Nome
-                  || "";
-
-            // Projeto
-            let proj = "";
-            if (item.RateiosProjeto?.length > 0)
-                proj = item.RateiosProjeto[0].Projeto?.Extenso
-                     || item.RateiosProjeto[0].Projeto?.Reduzido
-                     || item.RateiosProjeto[0].Projeto?.Nome
-                     || "";
-
-            // Agente
-            let agente = item.Agente?.Nome
-                      || item.Agente?.NomeRazao
-                      || item.NomeAgente
-                      || "";
-            if (typeof agente === "object") agente = agente.Nome || "";
-
-            const base = [
-                lanc.Data        || "",
-                lanc.CodigoLote  || "",
-                lanc.Codigo      || "",
-                docFiscal,
-                dataDoc
-            ];
-
-            let temLinha = false;
-
-            // Linha de Débito
-            if (item.ContaDebito) {
-                rows.push([...base,
-                    item.ContaDebito.Extenso || item.ContaDebito.Reduzido || "",
-                    item.ContaDebito.Descricao || "",
-                    valor, "D", hist, cc, proj, agente
-                ]);
-                temLinha = true;
+        payload.forEach(lanc => {
+            if (!lanc.Itens || lanc.Itens.length === 0) {
+                rows.push([lanc.Data || "", lanc.CodigoLote || "", lanc.Codigo || "",
+                    "", "", "SEM ITENS", "", 0, "", "", "", "", ""]);
+                return;
             }
 
-            // Linha de Crédito
-            if (item.ContaCredito) {
-                rows.push([...base,
-                    item.ContaCredito.Extenso || item.ContaCredito.Reduzido || "",
-                    item.ContaCredito.Descricao || "",
-                    valor, "C", hist, cc, proj, agente
-                ]);
-                temLinha = true;
-            }
+            lanc.Itens.forEach(item => {
+                const valor = parseFloat(item.Valor || item.ValorLancamento) || 0;
 
-            // Fallback: lançamento sem conta identificada
-            if (!temLinha) {
-                rows.push([...base,
-                    "VERIFICAR LANÇAMENTO", "", valor, "", hist, cc, proj, agente
-                ]);
-            }
+                let hist = item.Complemento || item.Historico || "";
+                if (typeof hist === "object") hist = hist.Descricao || "";
+
+                let docFiscal = item.Documento?.Numero || item.Documento?.Codigo || item.NumeroDocumento || "";
+                let dataDoc   = item.Documento?.Data   || item.DataDocumento || "";
+
+                let cc = "";
+                if (item.RateiosCentroCusto?.length > 0)
+                    cc = item.RateiosCentroCusto[0].CentroCusto?.Extenso
+                      || item.RateiosCentroCusto[0].CentroCusto?.Reduzido
+                      || item.RateiosCentroCusto[0].CentroCusto?.Nome || "";
+
+                let proj = "";
+                if (item.RateiosProjeto?.length > 0)
+                    proj = item.RateiosProjeto[0].Projeto?.Extenso
+                         || item.RateiosProjeto[0].Projeto?.Reduzido
+                         || item.RateiosProjeto[0].Projeto?.Nome || "";
+
+                let agente = item.Agente?.Nome || item.Agente?.NomeRazao || item.NomeAgente || "";
+                if (typeof agente === "object") agente = agente.Nome || "";
+
+                const base = [lanc.Data || "", lanc.CodigoLote || "", lanc.Codigo || "", docFiscal, dataDoc];
+                let temLinha = false;
+
+                if (item.ContaDebito) {
+                    rows.push([...base,
+                        item.ContaDebito.Extenso  || item.ContaDebito.Reduzido  || "",
+                        item.ContaDebito.Descricao  || "",
+                        valor, "D", hist, cc, proj, agente]);
+                    temLinha = true;
+                }
+                if (item.ContaCredito) {
+                    rows.push([...base,
+                        item.ContaCredito.Extenso || item.ContaCredito.Reduzido || "",
+                        item.ContaCredito.Descricao || "",
+                        valor, "C", hist, cc, proj, agente]);
+                    temLinha = true;
+                }
+                if (!temLinha) {
+                    rows.push([...base, "VERIFICAR LANÇAMENTO", "", valor, "", hist, cc, proj, agente]);
+                }
+            });
         });
-    });
 
-    return rows;
-}
-        
+        return rows;
+    }
+
     function montarTabelaAgentes(payload) {
         const rows = [HEADERS_AGENTE];
         const lista = Array.isArray(payload) ? payload
                     : payload.items || payload.Items || payload.data || [payload];
-
         lista.forEach(ag => {
             rows.push([
-                ag.Codigo    || ag.Id          || "",
-                ag.Nome      || ag.NomeRazao   || "",
-                ag.Tipo      || ag.TipoAgente  || "",
-                ag.CpfCnpj   || ag.Documento   || "",
-                ag.Email     || "",
-                ag.Telefone  || ag.Celular     || "",
+                ag.Codigo   || ag.Id        || "",
+                ag.Nome     || ag.NomeRazao || "",
+                ag.Tipo     || ag.TipoAgente || "",
+                ag.CpfCnpj  || ag.Documento || "",
+                ag.Email    || "",
+                ag.Telefone || ag.Celular   || "",
                 ag.Ativo !== undefined ? (ag.Ativo ? "Sim" : "Não") : ""
             ]);
         });
-
         return rows;
+    }
+
+    // ─────────────────────────────────────────────
+    // GRAVAR NO EXCEL
+    // ─────────────────────────────────────────────
+    async function gravarNoExcel(sheetName, dados, colunaValor) {
+        await Excel.run(async (context) => {
+            let sheet = context.workbook.worksheets.getItemOrNullObject(sheetName);
+            await context.sync();
+            if (sheet.isNullObject) sheet = context.workbook.worksheets.add(sheetName);
+            else sheet.getUsedRange().clear();
+            sheet.activate();
+
+            const numLinhas = dados.length;
+            const numCols   = dados[0].length;
+            const range     = sheet.getRangeByIndexes(0, 0, numLinhas, numCols);
+            range.values    = dados;
+
+            if (colunaValor !== null && numLinhas > 1) {
+                const valorRange = sheet.getRangeByIndexes(1, colunaValor, numLinhas - 1, 1);
+                valorRange.numberFormat = Array(numLinhas - 1).fill(["#,##0.00"]);
+            }
+
+            const headerRange = sheet.getRangeByIndexes(0, 0, 1, numCols);
+            headerRange.format.fill.color = "#0078d4";
+            headerRange.format.font.color = "#ffffff";
+            headerRange.format.font.bold  = true;
+            headerRange.format.font.size  = 10;
+
+            range.format.autofitColumns();
+            await context.sync();
+        });
     }
 
     // ─────────────────────────────────────────────
@@ -620,48 +630,37 @@ function montarTabelaRazao(payload) {
     // ─────────────────────────────────────────────
     async function gerarTemplateAgentes() {
         lockBtn("btn-template", true);
-        setStatus("Gerando template de carga...", "loading");
+        setStatus("Gerando template...", "loading");
         try {
             await Excel.run(async (context) => {
                 const sheetName = "Template_Agentes";
                 let sheet = context.workbook.worksheets.getItemOrNullObject(sheetName);
                 await context.sync();
-
                 if (sheet.isNullObject) sheet = context.workbook.worksheets.add(sheetName);
                 else sheet.getUsedRange().clear();
                 sheet.activate();
 
-                const colunasTemplate = [
-                    "NOME_RAZAO", "TIPO", "CPF_CNPJ", "EMAIL",
-                    "TELEFONE", "ENDERECO", "MUNICIPIO", "UF", "CEP"
-                ];
-                const exemplos = [
-                    ["Empresa Exemplo Ltda", "J", "00.000.000/0001-00",
-                     "contato@exemplo.com.br", "(11) 99999-9999",
-                     "Rua das Flores, 100", "São Paulo", "SP", "01001-000"]
-                ];
+                const colunas = ["NOME_RAZAO","TIPO","CPF_CNPJ","EMAIL","TELEFONE","ENDERECO","MUNICIPIO","UF","CEP"];
+                const exemplo = [["Empresa Exemplo Ltda","J","00.000.000/0001-00","contato@exemplo.com.br","(11) 99999-9999","Rua das Flores, 100","São Paulo","SP","01001-000"]];
 
-                const headerRange = sheet.getRangeByIndexes(0, 0, 1, colunasTemplate.length);
-                headerRange.values = [colunasTemplate];
-                headerRange.format.fill.color = "#107c41";
-                headerRange.format.font.color = "#ffffff";
-                headerRange.format.font.bold  = true;
+                const h = sheet.getRangeByIndexes(0, 0, 1, colunas.length);
+                h.values = [colunas];
+                h.format.fill.color = "#107c41";
+                h.format.font.color = "#ffffff";
+                h.format.font.bold  = true;
 
-                const exRange = sheet.getRangeByIndexes(1, 0, exemplos.length, colunasTemplate.length);
-                exRange.values = exemplos;
-                exRange.format.font.italic = true;
-                exRange.format.font.color  = "#888888";
+                const e = sheet.getRangeByIndexes(1, 0, 1, colunas.length);
+                e.values = exemplo;
+                e.format.font.italic = true;
+                e.format.font.color  = "#888888";
 
-                sheet.getRangeByIndexes(0, 0, 1 + exemplos.length, colunasTemplate.length)
-                     .format.autofitColumns();
-
+                sheet.getRangeByIndexes(0, 0, 2, colunas.length).format.autofitColumns();
                 await context.sync();
             });
-
-            setStatus("✓ Template gerado na aba 'Template_Agentes'. Preencha e use a Etapa 2.", "sucesso");
+            setStatus("✓ Template gerado na aba 'Template_Agentes'.", "sucesso");
         } catch (error) {
-            setStatus(`Erro ao gerar template: ${error.message}`, "erro");
-            console.error("[LG CFO] Erro em gerarTemplateAgentes:", error);
+            setStatus(`Erro: ${error.message}`, "erro");
+            console.error("[LG CFO]", error);
         } finally {
             lockBtn("btn-template", false);
         }
@@ -672,24 +671,19 @@ function montarTabelaRazao(payload) {
     // ─────────────────────────────────────────────
     async function processarInclusoesAgentes() {
         lockBtn("btn-enviar", true);
-        setStatus("Lendo planilha Template_Agentes...", "loading");
+        setStatus("Lendo Template_Agentes...", "loading");
         setProgress(5, "Lendo dados...");
-
         try {
             let agentes = [];
-
             await Excel.run(async (context) => {
                 const sheet = context.workbook.worksheets.getItemOrNullObject("Template_Agentes");
                 await context.sync();
-                if (sheet.isNullObject) throw new Error("Aba 'Template_Agentes' não encontrada. Gere o template primeiro (Etapa 1).");
-
+                if (sheet.isNullObject) throw new Error("Aba 'Template_Agentes' não encontrada. Gere o template primeiro.");
                 const usedRange = sheet.getUsedRange();
                 usedRange.load("values");
                 await context.sync();
-
                 const values = usedRange.values;
-                if (values.length < 2) throw new Error("Nenhum dado encontrado no template. Preencha ao menos uma linha.");
-
+                if (values.length < 2) throw new Error("Nenhum dado encontrado. Preencha ao menos uma linha.");
                 const headers = values[0];
                 agentes = values.slice(1)
                     .filter(row => row.some(c => c !== "" && c !== null))
@@ -700,9 +694,9 @@ function montarTabelaRazao(payload) {
                     });
             });
 
-            if (agentes.length === 0) throw new Error("Nenhum agente válido encontrado no template.");
+            if (!agentes.length) throw new Error("Nenhum agente válido encontrado.");
 
-            setStatus(`Enviando ${agentes.length} agente(s) para o Mega ERP...`, "loading");
+            setStatus(`Enviando ${agentes.length} agente(s)...`, "loading");
             setProgress(30, `0 / ${agentes.length}`);
 
             const res = await fetch(GOOGLE_WEBAPP_URL, {
@@ -710,12 +704,9 @@ function montarTabelaRazao(payload) {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ action: "incluirAgentes", agentes })
             });
-
-            if (!res.ok) throw new Error(`HTTP ${res.status}: falha na comunicação com o servidor.`);
-
-            setProgress(80, "Processando retorno...");
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const result = await res.json();
-            if (!result.success) throw new Error(result.error || "Erro no servidor ao incluir agentes.");
+            if (!result.success) throw new Error(result.error || "Erro no servidor.");
 
             const ok   = result.incluidos || 0;
             const fail = result.erros     || 0;
@@ -727,8 +718,7 @@ function montarTabelaRazao(payload) {
                 colResult.format.fill.color = "#107c41";
                 colResult.format.font.color = "#ffffff";
                 colResult.format.font.bold  = true;
-
-                if (result.resultados && result.resultados.length > 0) {
+                if (result.resultados?.length > 0) {
                     const statusRange = sheet.getRangeByIndexes(1, 9, result.resultados.length, 1);
                     statusRange.values = result.resultados.map(r => [r.status || "OK"]);
                 }
@@ -736,13 +726,13 @@ function montarTabelaRazao(payload) {
             });
 
             setProgress(100, "Concluído");
-            setStatus(`✓ ${ok} incluído(s) | ${fail} erro(s). Veja coluna STATUS_IMPORTACAO.`, ok > 0 ? "sucesso" : "erro");
+            setStatus(`✓ ${ok} incluído(s) | ${fail} erro(s). Veja STATUS_IMPORTACAO.`, ok > 0 ? "sucesso" : "erro");
             setTimeout(() => setProgress(null), 1500);
 
         } catch (error) {
             setStatus(`Erro: ${error.message}`, "erro");
             setProgress(null);
-            console.error("[LG CFO] Erro em processarInclusoesAgentes:", error);
+            console.error("[LG CFO]", error);
         } finally {
             lockBtn("btn-enviar", false);
         }
