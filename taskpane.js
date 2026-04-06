@@ -6,183 +6,138 @@ Office.onReady((info) => {
       $("#btn-sync").on("click", syncData);
       $("#btn-template").on("click", gerarTemplateAgentes);
       $("#btn-enviar").on("click", processarInclusoesAgentes);
+      console.log("Suplemento carregado e pronto.");
     });
   }
 });
 
-/**
- * --- FUNÇÕES DA ABA RELATÓRIOS (BAIXAR DADOS) ---
- * Busca dados do servidor e cria uma nova aba formatada.
- */
 async function syncData() {
   try {
-    $("#status").text("Consultando Mega ERP... Aguarde.");
-    
-    const modulo = $("#modulo").val() || "Dados";
+    $("#status").text("Verificando parâmetros...");
+
+    // Captura valores e limpa espaços
+    const modulo = ($("#modulo").val() || "Relatorio").trim();
     const dataInicio = $("#data-inicio").val();
     const dataFim = $("#data-fim").val();
 
-    // 1. Busca os dados no servidor
-    const res = await fetch(`${API_URL}/api/lancamentos?inicio=${dataInicio}&fim=${dataFim}`);
+    // Validação de segurança para evitar URL malformada (evita o 404)
+    if (!dataInicio || !dataFim) {
+      $("#status").text("Erro: Preencha as datas de início e fim.");
+      return;
+    }
+
+    const urlFinal = `${API_URL}/api/lancamentos?inicio=${dataInicio}&fim=${dataFim}`;
+    console.log("Chamando API:", urlFinal);
+    $("#status").text("Consultando API Mega...");
+
+    const res = await fetch(urlFinal);
     
     if (!res.ok) {
-      $("#status").text(`Erro: ${res.status} - ${res.statusText}`);
+      const errorDetail = await res.text();
+      throw new Error(`Erro ${res.status}: ${res.statusText}`);
+    }
+
+    const responseData = await res.json();
+    const lista = responseData.data || [];
+
+    if (lista.length === 0) {
+      $("#status").text("Nenhum dado encontrado para este período.");
       return;
     }
 
-    const result = await res.json();
-    
-    // Normalização robusta do array de dados
-    let arrayDeDados = Array.isArray(result) ? result : (result.data || []);
-    if (!Array.isArray(arrayDeDados) && typeof result === 'object') {
-        arrayDeDados = [result];
-    }
-
-    if (arrayDeDados.length === 0) {
-      $("#status").text("Consulta concluída, mas não há dados no período.");
-      return;
-    }
-
-    // 2. Escrita no Excel
     await Excel.run(async (context) => {
-      const sheetName = "Relatorio_" + modulo.toUpperCase();
+      const sheetName = "Relatorio_" + modulo.replace(/\s+/g, '_').toUpperCase();
       let sheet = context.workbook.worksheets.getItemOrNullObject(sheetName);
       await context.sync();
-      
-      if (sheet.isNullObject) {
-        sheet = context.workbook.worksheets.add(sheetName);
-      } else {
-        // .clear() direto na sheet evita erro 404 se a aba estiver vazia
-        sheet.getRange().clear(); 
-      }
-      
-      sheet.activate();
-      
-      const headers = Object.keys(arrayDeDados[0]);
-      const dadosParaExcel = [headers];
-      
-      arrayDeDados.forEach(item => {
-        const linha = headers.map(h => (item[h] ?? ""));
-        dadosParaExcel.push(linha);
-      });
 
-      const range = sheet.getRangeByIndexes(0, 0, dadosParaExcel.length, dadosParaExcel[0].length);
-      range.values = dadosParaExcel;
-      
-      // Formatação
-      const headerRange = sheet.getRangeByIndexes(0, 0, 1, headers.length);
-      headerRange.format.fill.color = "#0078d4";
-      headerRange.format.font.color = "white";
-      headerRange.format.font.bold = true;
-      
-      range.format.autofitColumns();
-      await context.sync();
-    });
-
-    $("#status").text(`Sucesso! ${arrayDeDados.length} linhas baixadas.`);
-
-  } catch (error) {
-    console.error(error);
-    $("#status").text("Erro de conexão ou processamento de dados.");
-  }
-}
-
-/**
- * --- FUNÇÕES DA ABA AGENTES (ENVIAR PARA MEGA) ---
- * Gera o cabeçalho padrão para preenchimento.
- */
-async function gerarTemplateAgentes() {
-  try {
-    await Excel.run(async (context) => {
-      const sheetName = "Carga_Agentes";
-      let sheet = context.workbook.worksheets.getItemOrNullObject(sheetName);
-      await context.sync();
-      
       if (sheet.isNullObject) {
         sheet = context.workbook.worksheets.add(sheetName);
       } else {
         sheet.getRange().clear();
       }
-      
+
       sheet.activate();
-      
-      const headers = [["NOME", "APELIDO", "TIPO (F/J)", "CPF_CNPJ", "LOGRADOURO", "IBGE_MUNICIPIO", "STATUS/ERRO"]];
-      const range = sheet.getRange("A1:G1");
-      range.values = headers;
-      range.format.fill.color = "#217346";
-      range.format.font.color = "white";
-      range.format.font.bold = true;
+
+      // Transforma objetos JSON em matriz para o Excel
+      const headers = Object.keys(lista[0]);
+      const rows = lista.map(item => headers.map(h => item[h] ?? ""));
+      const finalData = [headers, ...rows];
+
+      const range = sheet.getRangeByIndexes(0, 0, finalData.length, headers.length);
+      range.values = finalData;
+
+      // Estilização básica
+      const headerRange = range.getRow(0);
+      headerRange.format.fill.color = "#0078d4";
+      headerRange.format.font.color = "white";
+      headerRange.format.font.bold = true;
       range.format.autofitColumns();
-      
+
       await context.sync();
-      $("#status").text("Aba de Carga criada! Preencha e clique em Enviar.");
+      $("#status").text(`Sucesso! ${lista.length} linhas baixadas.`);
     });
+
   } catch (error) {
-    console.error(error);
-    $("#status").text("Erro ao criar aba de template.");
+    console.error("Erro detalhado:", error);
+    $("#status").text("Falha: " + error.message);
   }
 }
 
-/**
- * Lê os dados da aba ativa e envia via POST para a API.
- */
-async function processarInclusoesAgentes() {
+async function gerarTemplateAgentes() {
   try {
     await Excel.run(async (context) => {
-      $("#status").text("Analisando e enviando dados...");
-      
-      const sheet = context.workbook.worksheets.getActiveWorksheet();
-      const usedRange = sheet.getUsedRangeOrNullObject();
-      usedRange.load("values");
+      let sheet = context.workbook.worksheets.getItemOrNullObject("Carga_Agentes");
       await context.sync();
 
-      if (usedRange.isNullObject || usedRange.values.length < 2) {
-        $("#status").text("Nenhum dado encontrado na planilha!");
-        return;
+      if (sheet.isNullObject) {
+        sheet = context.workbook.worksheets.add("Carga_Agentes");
       }
+      sheet.activate();
+      sheet.getRange().clear();
 
-      const dados = usedRange.values;
-      const headers = dados[0];
+      const headers = [["NOME", "APELIDO", "TIPO (F/J)", "CPF_CNPJ", "LOGRADOURO", "IBGE_MUNICIPIO", "STATUS_RETORNO"]];
+      sheet.getRange("A1:G1").values = headers;
+      sheet.getRange("A1:G1").format.font.bold = true;
       
-      // Filtra linhas que podem estar vazias no final da planilha
-      const payload = dados.slice(1)
-        .filter(linha => linha.some(celula => celula !== "" && celula !== null))
-        .map(linha => {
-          let obj = {};
-          headers.forEach((header, idx) => {
-            obj[header] = linha[idx] ?? null;
-          });
-          return obj;
-        });
-
-      if (payload.length === 0) {
-        $("#status").text("Não há dados válidos para enviar.");
-        return;
-      }
-
-      // Envio para o servidor
-      const response = await fetch(`${API_URL}/api/agentes`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (!response.ok) {
-        const erroTxt = await response.text();
-        $("#status").text(`Erro ${response.status}: ${erroTxt || response.statusText}`);
-        return;
-      }
-
-      const result = await response.json();
-      
-      if (result.success) {
-        $("#status").text(`✓ ${payload.length} agentes enviados com sucesso!`);
-      } else {
-        $("#status").text(`Erro no processamento: ${result.error || 'Verifique o servidor.'}`);
-      }
+      await context.sync();
+      $("#status").text("Template de agentes criado.");
     });
   } catch (error) {
-    console.error(error);
-    $("#status").text("Erro ao ler Excel ou falha de rede.");
+    $("#status").text("Erro ao criar template.");
   }
+}
+
+async function processarInclusoesAgentes() {
+    try {
+        await Excel.run(async (context) => {
+            $("#status").text("Lendo dados da planilha...");
+            const sheet = context.workbook.worksheets.getActiveWorksheet();
+            const range = sheet.getUsedRange();
+            range.load("values");
+            await context.sync();
+
+            const [headers, ...rows] = range.values;
+            const payload = rows.map(row => {
+                let obj = {};
+                headers.forEach((h, i) => obj[h] = row[i]);
+                return obj;
+            }).filter(item => item.NOME); // Ignora linhas sem nome
+
+            $("#status").text("Enviando para o servidor...");
+            const response = await fetch(`${API_URL}/api/agentes`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const resData = await response.json();
+            if (resData.success) {
+                $("#status").text("✓ Enviado com sucesso!");
+            } else {
+                $("#status").text("Erro no servidor: " + resData.error);
+            }
+        });
+    } catch (error) {
+        $("#status").text("Erro no processamento.");
+    }
 }
