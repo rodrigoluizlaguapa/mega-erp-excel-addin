@@ -155,6 +155,17 @@
         .date-row { display: flex; gap: 10px; }
         .date-row .form-group { flex: 1; }
 
+        #timer {
+            padding: 7px 9px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            font-family: 'DM Mono', monospace;
+            font-size: 13px;
+            color: var(--text-muted);
+            background: var(--bg);
+            text-align: center;
+        }
+
         .btn {
             display: flex;
             align-items: center;
@@ -177,10 +188,15 @@
         .btn:hover:not(:disabled) { background: var(--blue-dark); transform: translateY(-1px); }
         .btn:active:not(:disabled) { transform: translateY(0); }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .btn-green { background: var(--green); }
-        .btn-green:hover:not(:disabled) { background: var(--green-dark); }
+        .btn-green  { background: var(--green); }
+        .btn-green:hover:not(:disabled)  { background: var(--green-dark); }
         .btn-orange { background: var(--orange); }
         .btn-orange:hover:not(:disabled) { background: var(--orange-dark); }
+
+        .btn-row { display: flex; gap: 8px; }
+        .btn-row .btn { flex: 3; }
+        .btn-row .btn-cancelar { flex: 1; background: var(--orange); display: none; }
+        .btn-row .btn-cancelar:hover:not(:disabled) { background: var(--orange-dark); }
 
         .section-label {
             font-size: 10px;
@@ -263,7 +279,9 @@
         <div id="progress-label">0%</div>
     </div>
 
+    <!-- ── RELATÓRIOS ── -->
     <div id="relat" class="content active">
+
         <div class="form-group">
             <label>Módulo</label>
             <select id="modulo">
@@ -271,6 +289,7 @@
                 <option value="agentes">Lista de Agentes</option>
             </select>
         </div>
+
         <div class="date-row">
             <div class="form-group">
                 <label>Data Início</label>
@@ -281,15 +300,36 @@
                 <input type="date" id="data-fim">
             </div>
         </div>
-        <button id="btn-sync" class="btn">
-            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M1 8a7 7 0 0 1 12-4.9"/><path d="M15 8a7 7 0 0 1-12 4.9"/>
-                <polyline points="12 3 12 7 16 7"/><polyline points="4 13 4 9 0 9"/>
-            </svg>
-            Baixar para o Excel
-        </button>
+
+        <div class="date-row">
+            <div class="form-group" style="flex:1;">
+                <label>Máx. Lançamentos</label>
+                <select id="max-lancamentos">
+                    <option value="100">100 — teste rápido</option>
+                    <option value="500">500</option>
+                    <option value="1000">1.000</option>
+                    <option value="5000" selected>5.000 — completo</option>
+                </select>
+            </div>
+            <div class="form-group" style="flex:1;">
+                <label>Tempo decorrido</label>
+                <div id="timer">00:00</div>
+            </div>
+        </div>
+
+        <div class="btn-row">
+            <button id="btn-sync" class="btn">
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M1 8a7 7 0 0 1 12-4.9"/><path d="M15 8a7 7 0 0 1-12 4.9"/>
+                    <polyline points="12 3 12 7 16 7"/><polyline points="4 13 4 9 0 9"/>
+                </svg>
+                Baixar para o Excel
+            </button>
+            <button id="btn-cancelar" class="btn btn-cancelar">✕ Parar</button>
+        </div>
     </div>
 
+    <!-- ── AGENTES ── -->
     <div id="agnt" class="content">
         <div class="section-label">Cadastro em Massa</div>
         <button id="btn-template" class="btn btn-green">
@@ -314,12 +354,35 @@
 
     <script>
     // ─────────────────────────────────────────────
-    // CONFIGURAÇÃO — atualize a URL a cada novo deploy
+    // CONFIGURAÇÃO
     // ─────────────────────────────────────────────
     const GOOGLE_WEBAPP_URL = "http://localhost:3000";
 
     const HEADERS_RAZAO  = ["DATA","LOTE","DOCUMENTO","DOC_FISCAL","DATA_DOC","CONTA","DESC_CONTA","VALOR","D/C","HISTORICO","CENTRO_CUSTO","PROJETO","AGENTE"];
     const HEADERS_AGENTE = ["CODIGO","NOME","TIPO","CPF_CNPJ","EMAIL","TELEFONE","ATIVO"];
+
+    // ─────────────────────────────────────────────
+    // CONTROLE DE ESTADO
+    // ─────────────────────────────────────────────
+    let _cancelado     = false;
+    let _timerInterval = null;
+    let _timerSegundos = 0;
+
+    function iniciarTimer() {
+        _timerSegundos = 0;
+        $("#timer").text("00:00");
+        _timerInterval = setInterval(() => {
+            _timerSegundos++;
+            const m = String(Math.floor(_timerSegundos / 60)).padStart(2, "0");
+            const s = String(_timerSegundos % 60).padStart(2, "0");
+            $("#timer").text(`${m}:${s}`);
+        }, 1000);
+    }
+
+    function pararTimer() {
+        clearInterval(_timerInterval);
+        _timerInterval = null;
+    }
 
     // ─────────────────────────────────────────────
     // UTILS
@@ -413,14 +476,23 @@
             return;
         }
 
+        _cancelado = false;
         lockBtn("btn-sync", true);
+        $("#btn-cancelar").css("display", "flex");
+        $("#btn-cancelar").off("click").on("click", () => {
+            _cancelado = true;
+            setStatus("Cancelando após lote atual...", "loading");
+        });
+
+        iniciarTimer();
         setStatus("Buscando lançamentos...", "loading");
         setProgress(5, "Conectando...");
 
         try {
-            const modulo     = $("#modulo").val();
-            const dataInicio = $("#data-inicio").val();
-            const dataFim    = $("#data-fim").val();
+            const modulo         = $("#modulo").val();
+            const dataInicio     = $("#data-inicio").val();
+            const dataFim        = $("#data-fim").val();
+            const maxLancamentos = parseInt($("#max-lancamentos").val());
 
             // ── AGENTES (fluxo simples) ──
             if (modulo === "agentes") {
@@ -433,19 +505,21 @@
                 const payload = normalizarArray(result.data);
                 if (!payload.length) {
                     setStatus("Nenhum agente encontrado.", "info");
-                    setProgress(null); lockBtn("btn-sync", false); return;
+                    setProgress(null); return;
                 }
                 await gravarNoExcel("Agentes", montarTabelaAgentes(payload), null);
-                setStatus(`✓ ${payload.length} agente(s) importado(s).`, "sucesso");
-                setProgress(null); lockBtn("btn-sync", false); return;
+                setStatus(`✓ ${payload.length} agente(s) importado(s). Tempo: ${$("#timer").text()}`, "sucesso");
+                setProgress(null); return;
             }
 
-            // ── RAZÃO CONTÁBIL: ETAPA 1 — busca todas as páginas ──
+            // ── RAZÃO CONTÁBIL: ETAPA 1 — paginação ──
             let todosCabecalhos = [];
             let page = 1;
             const limit = 100;
 
             while (true) {
+                if (_cancelado) break;
+
                 const url = `${GOOGLE_WEBAPP_URL}?action=list&inicio=${dataInicio}&fim=${dataFim}&page=${page}&limit=${limit}&nocache=${Date.now()}`;
                 const res = await fetch(url);
                 if (!res.ok) throw new Error(`HTTP ${res.status} na página ${page}`);
@@ -455,22 +529,34 @@
 
                 const pagina = normalizarArray(result.data);
                 todosCabecalhos = todosCabecalhos.concat(pagina);
-                setStatus(`Página ${page} — ${todosCabecalhos.length} lançamentos...`, "loading");
-                setProgress(Math.min(30, page * 3), `Página ${page}...`);
+
+                setStatus(`Página ${page} — ${todosCabecalhos.length} lançamentos encontrados...`, "loading");
+                setProgress(Math.min(30, page * 3), `Página ${page} · ${$("#timer").text()}`);
 
                 if (pagina.length < limit) break;
+                if (todosCabecalhos.length >= maxLancamentos) break;
                 page++;
                 if (page > 50) break;
             }
 
-            setStatus(`${todosCabecalhos.length} lançamentos. Buscando detalhes...`, "loading");
-            setProgress(35, "Iniciando drilldown...");
+            // Aplica o corte do limite
+            todosCabecalhos = todosCabecalhos.slice(0, maxLancamentos);
 
-            // ── ETAPA 2 — drilldown em lotes de 10 paralelos ──
+            if (_cancelado && todosCabecalhos.length === 0) {
+                setStatus("Cancelado antes de obter dados.", "info");
+                setProgress(null); return;
+            }
+
+            setStatus(`${todosCabecalhos.length} lançamentos. Buscando detalhes...`, "loading");
+            setProgress(35, `Iniciando drilldown · ${$("#timer").text()}`);
+
+            // ── ETAPA 2 — drilldown em lotes paralelos ──
             const LOTE = 10;
             let dadosParaExcel = [HEADERS_RAZAO];
 
             for (let i = 0; i < todosCabecalhos.length; i += LOTE) {
+                if (_cancelado) break;
+
                 const lote = todosCabecalhos.slice(i, i + LOTE);
 
                 const promessas = lote.map(lanc => {
@@ -488,19 +574,26 @@
                     montarTabelaRazao([lanc]).slice(1).forEach(row => dadosParaExcel.push(row));
                 });
 
-                const pct = 35 + Math.round(((i + LOTE) / todosCabecalhos.length) * 60);
-                setProgress(Math.min(95, pct), `${Math.min(i + LOTE, todosCabecalhos.length)} / ${todosCabecalhos.length}`);
-                setStatus(`Processando ${Math.min(i + LOTE, todosCabecalhos.length)} de ${todosCabecalhos.length}...`, "loading");
+                const processados = Math.min(i + LOTE, todosCabecalhos.length);
+                const pct = 35 + Math.round((processados / todosCabecalhos.length) * 60);
+                setProgress(Math.min(95, pct), `${processados} / ${todosCabecalhos.length} · ${$("#timer").text()}`);
+                setStatus(`Processando ${processados} de ${todosCabecalhos.length}...`, "loading");
             }
 
             // ── ETAPA 3 — grava no Excel ──
             setStatus("Gravando no Excel...", "loading");
-            setProgress(97, "Escrevendo planilha...");
+            setProgress(97, `Escrevendo planilha · ${$("#timer").text()}`);
             await gravarNoExcel("Razao_Detalhado", dadosParaExcel, 7);
 
             const totalLinhas = dadosParaExcel.length - 1;
+            const tempoFinal  = $("#timer").text();
             setProgress(100, "Concluído");
-            setStatus(`✓ ${totalLinhas} linha${totalLinhas !== 1 ? "s" : ""} importada${totalLinhas !== 1 ? "s" : ""} com sucesso.`, "sucesso");
+            setStatus(
+                _cancelado
+                    ? `⚠ Parcial: ${totalLinhas} linha(s) gravada(s) em ${tempoFinal}.`
+                    : `✓ ${totalLinhas} linha(s) importada(s) em ${tempoFinal}.`,
+                _cancelado ? "info" : "sucesso"
+            );
             setTimeout(() => setProgress(null), 1500);
 
         } catch (error) {
@@ -508,7 +601,9 @@
             setProgress(null);
             console.error("[LG CFO]", error);
         } finally {
+            pararTimer();
             lockBtn("btn-sync", false);
+            $("#btn-cancelar").hide();
         }
     }
 
@@ -581,12 +676,12 @@
                     : payload.items || payload.Items || payload.data || [payload];
         lista.forEach(ag => {
             rows.push([
-                ag.Codigo   || ag.Id        || "",
-                ag.Nome     || ag.NomeRazao || "",
+                ag.Codigo   || ag.Id         || "",
+                ag.Nome     || ag.NomeRazao  || "",
                 ag.Tipo     || ag.TipoAgente || "",
-                ag.CpfCnpj  || ag.Documento || "",
+                ag.CpfCnpj  || ag.Documento  || "",
                 ag.Email    || "",
-                ag.Telefone || ag.Celular   || "",
+                ag.Telefone || ag.Celular    || "",
                 ag.Ativo !== undefined ? (ag.Ativo ? "Sim" : "Não") : ""
             ]);
         });
@@ -712,7 +807,7 @@
             const fail = result.erros     || 0;
 
             await Excel.run(async (context) => {
-                const sheet = context.workbook.worksheets.getItem("Template_Agentes");
+                const sheet     = context.workbook.worksheets.getItem("Template_Agentes");
                 const colResult = sheet.getRangeByIndexes(0, 9, 1, 1);
                 colResult.values = [["STATUS_IMPORTACAO"]];
                 colResult.format.fill.color = "#107c41";
