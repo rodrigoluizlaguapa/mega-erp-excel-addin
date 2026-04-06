@@ -1,4 +1,4 @@
-const GOOGLE_WEBAPP_URL = "http://localhost:3000";
+const API_URL = "http://localhost:3000";
 
 Office.onReady((info) => {
   if (info.host === Office.HostType.Excel) {
@@ -11,6 +11,7 @@ Office.onReady((info) => {
 });
 
 // --- FUNÇÕES DA ABA RELATÓRIOS (BAIXAR DADOS) ---
+
 async function syncData() {
   try {
     $("#status").text("Consultando Mega ERP... Aguarde.");
@@ -19,26 +20,32 @@ async function syncData() {
     const dataInicio = $("#data-inicio").val();
     const dataFim = $("#data-fim").val();
 
-    // 1. Busca os dados no Google
+    // 1. Busca os dados no servidor Node.js
     const res = await fetch(`${API_URL}/api/lancamentos?inicio=${dataInicio}&fim=${dataFim}`);
+    
+    if (!res.ok) {
+      $("#status").text(`Erro: ${res.status} - ${res.statusText}`);
+      return;
+    }
+
     const rawText = await res.text();
     
     let result;
     try {
-        result = JSON.parse(rawText);
+      result = JSON.parse(rawText);
     } catch(e) {
-        $("#status").text("Erro: O servidor não retornou um formato válido.");
-        return;
+      $("#status").text("Erro: O servidor não retornou um formato válido.");
+      return;
     }
 
     // 2. Normaliza os dados (não importa se vem direto num array ou dentro de "result.data")
     let arrayDeDados = [];
     if (Array.isArray(result)) {
-        arrayDeDados = result;
+      arrayDeDados = result;
     } else if (result && result.data && Array.isArray(result.data)) {
-        arrayDeDados = result.data;
+      arrayDeDados = result.data;
     } else if (result && typeof result === 'object') {
-        arrayDeDados = [result]; 
+      arrayDeDados = [result]; 
     }
 
     // Se estiver vazio de fato
@@ -55,23 +62,23 @@ async function syncData() {
       
       // Cria a aba se não existir, limpa se existir
       if (sheet.isNullObject) {
-          sheet = context.workbook.worksheets.add(sheetName);
+        sheet = context.workbook.worksheets.add(sheetName);
       } else {
-          sheet.getUsedRange().clear();
+        sheet.getUsedRange().clear();
       }
       
       // PULA PARA A ABA NOVA
       sheet.activate();
-
+      
       let headers = Object.keys(arrayDeDados[0]);
       let dadosParaExcel = [headers];
-
+      
       arrayDeDados.forEach(item => {
         let linha = [];
         headers.forEach(h => {
-            let valor = item[h];
-            if(valor === null || valor === undefined) valor = "";
-            linha.push(valor);
+          let valor = item[h];
+          if(valor === null || valor === undefined) valor = "";
+          linha.push(valor);
         });
         dadosParaExcel.push(linha);
       });
@@ -97,6 +104,7 @@ async function syncData() {
 }
 
 // --- FUNÇÕES DA ABA AGENTES (ENVIAR PARA MEGA) ---
+
 async function gerarTemplateAgentes() {
   await Excel.run(async (context) => {
     let sheetName = "Carga_Agentes";
@@ -105,14 +113,14 @@ async function gerarTemplateAgentes() {
     
     // Cria a aba se não existir, limpa se já existir
     if (sheet.isNullObject) {
-        sheet = context.workbook.worksheets.add(sheetName);
+      sheet = context.workbook.worksheets.add(sheetName);
     } else {
-        sheet.getUsedRange().clear();
+      sheet.getUsedRange().clear();
     }
     
     // PULA PARA A ABA NOVA
     sheet.activate();
-
+    
     const headers = [["NOME", "APELIDO", "TIPO (F/J)", "CPF_CNPJ", "LOGRADOURO", "IBGE_MUNICIPIO", "STATUS/ERRO"]];
     const range = sheet.getRange("A1:G1");
     range.values = headers;
@@ -129,10 +137,58 @@ async function gerarTemplateAgentes() {
 async function processarInclusoesAgentes() {
   await Excel.run(async (context) => {
     $("#status").text("Analisando e enviando dados...");
+    
     const sheet = context.workbook.worksheets.getActiveWorksheet();
     const usedRange = sheet.getUsedRange();
     usedRange.load("values, rowCount");
     await context.sync();
 
     const dados = usedRange.values;
-    if (dados.
+    
+    if (dados.length < 2) {
+      $("#status").text("Nenhum dado para enviar!");
+      return;
+    }
+
+    // Remove header
+    const headers = dados[0];
+    const registros = dados.slice(1);
+
+    // Prepara payload
+    const payload = registros.map(linha => {
+      let obj = {};
+      headers.forEach((header, idx) => {
+        obj[header] = linha[idx] || null;
+      });
+      return obj;
+    });
+
+    try {
+      // Envia para o servidor
+      const response = await fetch(`${API_URL}/api/agentes`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        $("#status").text(`Erro ao enviar: ${response.status} - ${response.statusText}`);
+        return;
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        $("#status").text(`✓ ${payload.length} agentes enviados com sucesso!`);
+      } else {
+        $("#status").text(`Erro: ${result.error}`);
+      }
+
+    } catch (error) {
+      console.error(error);
+      $("#status").text("Erro de conexão ao enviar os dados.");
+    }
+  });
+}
