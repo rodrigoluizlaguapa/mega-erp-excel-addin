@@ -1,871 +1,219 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>LG CFO - Mega ERP</title>
-    <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
-    <script type="text/javascript" src="https://ajax.aspnetcdn.com/ajax/jQuery/jquery-3.6.0.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --blue:       #0078d4;
-            --blue-dark:  #005a9e;
-            --blue-pale:  #e8f4fd;
-            --green:      #107c41;
-            --green-dark: #0d6534;
-            --orange:     #c84b00;
-            --orange-dark:#a33b00;
-            --red-pale:   #fdf0ee;
-            --red-text:   #7a1a00;
-            --red-border: #f0b8a8;
-            --ok-pale:    #edf7f0;
-            --ok-text:    #0d4a21;
-            --ok-border:  #a8d8b8;
-            --warn-pale:  #fff8e6;
-            --warn-text:  #7a5000;
-            --warn-border:#f0d88a;
-            --bg:         #f5f5f5;
-            --surface:    #ffffff;
-            --border:     #d0d0d0;
-            --text:       #1a1a1a;
-            --text-muted: #666666;
-            --radius:     6px;
+require('dotenv').config();
+const express = require('express');
+const axios = require('axios');
+const NodeCache = require('node-cache');
+const cors = require('cors');
+
+const app = express();
+const tokenCache = new NodeCache({ stdTTL: 3600 });
+
+const BASE_URL  = process.env.MEGA_URL;
+const USER      = process.env.MEGA_USER;
+const PASS      = process.env.MEGA_PASS;
+const TENANT_ID = process.env.MEGA_TENANT;
+const VERSAO    = "v8.0 - Node.js";
+
+app.use(cors());
+app.use(express.json());
+
+async function getMegaToken() {
+    const cached = tokenCache.get('mega_token');
+    if (cached) return cached;
+
+    console.log('🔄 Autenticando no Mega ERP...');
+    const response = await axios.post(
+        `${BASE_URL}/api/auth/signin`,
+        { userName: USER, password: PASS, tenant: TENANT_ID },
+        { headers: { 'TenantId': TENANT_ID }, timeout: 10000 }
+    );
+    const token = response.data.accessToken;
+    tokenCache.set('mega_token', token);
+    console.log('✅ Token obtido e cacheado.');
+    return token;
+}
+
+async function chamarMega(url, token) {
+    return axios.get(url, {
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'TenantId': TENANT_ID,
+            'Accept': 'application/json'
+        },
+        timeout: 20000
+    }).then(res => res.data);
+}
+
+app.get('/', async (req, res) => {
+    const action = req.query.action;
+    console.log(`\n📥 GET action=${action} | params: ${JSON.stringify(req.query)}`);
+
+    try {
+        const token = await getMegaToken();
+
+        // ── ESTIMATIVA ────────────────────────────────────────────
+        if (action === 'estimativa') {
+            const { inicio, fim } = req.query;
+            if (!inicio || !fim)
+                return res.status(400).json({ success: false, error: "Parâmetros 'inicio' e 'fim' são obrigatórios." });
+
+            const urlPrimeira = `${BASE_URL}/api/contabilidadelancamentos/lancamento`
+                + `?DataInicial=${inicio}&DataFinal=${fim}&Page=1&Limit=1`;
+
+            console.log(`🔍 ESTIMATIVA (tentativa rápida): ${urlPrimeira}`);
+            const dataPrimeira = await chamarMega(urlPrimeira, token);
+
+            let total =
+                dataPrimeira.total      || dataPrimeira.Total      ||
+                dataPrimeira.totalCount || dataPrimeira.TotalCount ||
+                dataPrimeira.count      || dataPrimeira.Count      || 0;
+
+            if (!total) {
+                console.log(`🔍 ESTIMATIVA (contagem completa)...`);
+                const urlContar = `${BASE_URL}/api/contabilidadelancamentos/lancamento`
+                    + `?DataInicial=${inicio}&DataFinal=${fim}&Page=1&Limit=9999`;
+                const dataContar = await chamarMega(urlContar, token);
+                const arr = Array.isArray(dataContar) ? dataContar
+                    : dataContar.items || dataContar.Items || dataContar.data || [];
+                total = arr.length;
+            }
+
+            const estimativaLinhas = total * 2;
+            console.log(`✅ ESTIMATIVA: ${total} lançamentos → ~${estimativaLinhas} linhas`);
+
+            return res.json({
+                success: true,
+                versao: VERSAO,
+                data: { totalLancamentos: total, estimativaLinhas }
+            });
         }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+        // ── LIST ──────────────────────────────────────────────────
+        if (action === 'list') {
+            const { inicio, fim, page = 1, limit = 100 } = req.query;
+            if (!inicio || !fim)
+                return res.status(400).json({ success: false, error: "Parâmetros 'inicio' e 'fim' são obrigatórios." });
 
-        body {
-            font-family: 'DM Sans', sans-serif;
-            font-size: 13px;
-            background: var(--bg);
-            color: var(--text);
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
+            const url = `${BASE_URL}/api/contabilidadelancamentos/lancamento`
+                + `?DataInicial=${inicio}&DataFinal=${fim}`
+                + `&Page=${page}&Limit=${limit}`;
+
+            console.log(`🔍 LIST página ${page}: ${url}`);
+            const data = await chamarMega(url, token);
+            const lancamentos = Array.isArray(data) ? data
+                : data.items || data.Items || data.data || [];
+
+            console.log(`✅ ${lancamentos.length} lançamentos na página ${page}.`);
+            return res.json({ success: true, versao: VERSAO, data: lancamentos });
         }
 
-        .header {
-            background: var(--blue);
-            padding: 10px 14px 8px;
-            display: flex;
-            align-items: baseline;
-            gap: 8px;
-            flex-shrink: 0;
-        }
-        .header-title {
-            font-size: 14px;
-            font-weight: 700;
-            color: #fff;
-            letter-spacing: 0.02em;
-        }
-        .header-sub {
-            font-family: 'DM Mono', monospace;
-            font-size: 10px;
-            color: rgba(255,255,255,0.65);
-            letter-spacing: 0.04em;
-        }
+        // ── DETALHE ───────────────────────────────────────────────
+        if (action === 'detalhe') {
+            const { id } = req.query;
+            if (!id)
+                return res.status(400).json({ success: false, error: "Parâmetro 'id' é obrigatório." });
 
-        .tabs {
-            display: flex;
-            background: var(--surface);
-            border-bottom: 2px solid var(--border);
-            flex-shrink: 0;
-        }
-        .tab {
-            flex: 1;
-            padding: 10px 0;
-            text-align: center;
-            cursor: pointer;
-            font-size: 11px;
-            font-weight: 700;
-            color: var(--text-muted);
-            border-bottom: 3px solid transparent;
-            margin-bottom: -2px;
-            letter-spacing: 0.06em;
-            transition: color 0.15s, border-color 0.15s;
-        }
-        .tab:hover { color: var(--blue); }
-        .tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+            const expandParams = [
+                "Itens",
+                "Itens.Documento",
+                "Itens.Historico",
+                "Itens.Agente",
+                "RateiosCentroCusto",
+                "RateiosCentroCusto.CentroCusto",
+                "RateiosProjeto",
+                "RateiosProjeto.Projeto"
+            ].join(",");
 
-        #status {
-            margin: 12px 14px 0;
-            font-size: 12px;
-            font-weight: 500;
-            padding: 9px 12px;
-            border-radius: var(--radius);
-            border: 1px solid var(--blue-pale);
-            background: var(--blue-pale);
-            color: var(--blue-dark);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            min-height: 38px;
-            transition: background 0.25s, color 0.25s, border-color 0.25s;
-            flex-shrink: 0;
-        }
-        #status.loading { background: var(--warn-pale); color: var(--warn-text); border-color: var(--warn-border); }
-        #status.sucesso { background: var(--ok-pale);   color: var(--ok-text);   border-color: var(--ok-border); }
-        #status.erro    { background: var(--red-pale);  color: var(--red-text);  border-color: var(--red-border); }
+            const url = `${BASE_URL}/api/contabilidadelancamentos/lancamento/${id}?Expand=${expandParams}`;
+            console.log(`🔍 DETALHE id=${id}`);
+            const data = await chamarMega(url, token);
 
-        .spinner {
-            width: 14px; height: 14px;
-            border: 2px solid currentColor;
-            border-top-color: transparent;
-            border-radius: 50%;
-            animation: spin 0.7s linear infinite;
-            display: none;
-            flex-shrink: 0;
-        }
-        #status.loading .spinner { display: block; }
-        @keyframes spin { to { transform: rotate(360deg); } }
+            // Log do primeiro item para diagnóstico de campos
+            if (data?.Itens?.[0]) {
+                console.log(`[DETALHE] Primeiro item:`, JSON.stringify(data.Itens[0]).substring(0, 500));
+            }
 
-        .content { display: none; padding: 14px; flex: 1; overflow-y: auto; }
-        .content.active { display: block; }
-
-        .form-group { margin-bottom: 13px; }
-        label {
-            font-size: 11px;
-            font-weight: 700;
-            display: block;
-            margin-bottom: 4px;
-            color: var(--text-muted);
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
-        }
-        select, input[type="date"] {
-            width: 100%;
-            padding: 7px 9px;
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            font-family: 'DM Sans', sans-serif;
-            font-size: 13px;
-            color: var(--text);
-            background: var(--surface);
-            appearance: none;
-            transition: border-color 0.15s, box-shadow 0.15s;
-        }
-        select:focus, input:focus {
-            outline: none;
-            border-color: var(--blue);
-            box-shadow: 0 0 0 3px rgba(0,120,212,0.15);
-        }
-        input.invalid { border-color: var(--orange); box-shadow: 0 0 0 3px rgba(200,75,0,0.12); }
-
-        .date-row { display: flex; gap: 10px; }
-        .date-row .form-group { flex: 1; }
-
-        #timer {
-            padding: 7px 9px;
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            font-family: 'DM Mono', monospace;
-            font-size: 13px;
-            color: var(--text-muted);
-            background: var(--bg);
-            text-align: center;
+            console.log(`✅ Detalhe obtido para id=${id}.`);
+            return res.json({ success: true, versao: VERSAO, data });
         }
 
-        .btn {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 7px;
-            background: var(--blue);
-            color: #fff;
-            border: none;
-            padding: 10px 14px;
-            width: 100%;
-            cursor: pointer;
-            font-family: 'DM Sans', sans-serif;
-            font-weight: 700;
-            font-size: 12px;
-            letter-spacing: 0.04em;
-            border-radius: var(--radius);
-            margin-top: 10px;
-            transition: background 0.15s, opacity 0.15s, transform 0.1s;
-        }
-        .btn:hover:not(:disabled) { background: var(--blue-dark); transform: translateY(-1px); }
-        .btn:active:not(:disabled) { transform: translateY(0); }
-        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .btn-green  { background: var(--green); }
-        .btn-green:hover:not(:disabled)  { background: var(--green-dark); }
-        .btn-orange { background: var(--orange); }
-        .btn-orange:hover:not(:disabled) { background: var(--orange-dark); }
+        // ── AGENTES ───────────────────────────────────────────────
+        if (action === 'agentes') {
+            const url = `${BASE_URL}/api/agentes/agente`;
+            console.log(`🔍 AGENTES: ${url}`);
+            const data = await chamarMega(url, token);
+            const agentes = Array.isArray(data) ? data
+                : data.items || data.Items || data.data || [];
 
-        .btn-row { display: flex; gap: 8px; }
-        .btn-row .btn { flex: 3; }
-        .btn-row .btn-cancelar { flex: 1; background: var(--orange); display: none; }
-        .btn-row .btn-cancelar:hover:not(:disabled) { background: var(--orange-dark); }
-
-        .section-label {
-            font-size: 10px;
-            font-weight: 700;
-            letter-spacing: 0.08em;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            margin: 16px 0 6px;
-            padding-bottom: 4px;
-            border-bottom: 1px solid var(--border);
+            console.log(`✅ ${agentes.length} agentes obtidos.`);
+            return res.json({ success: true, versao: VERSAO, data: agentes });
         }
 
-        .agent-note {
-            font-size: 11px;
-            color: var(--text-muted);
-            margin-top: 14px;
-            text-align: center;
-            line-height: 1.5;
-        }
+        return res.status(400).json({
+            success: false,
+            error: `Action desconhecida: '${action}'. Use: estimativa, list, detalhe, agentes.`
+        });
 
-        #progress-wrap {
-            margin: 10px 14px 0;
-            display: none;
-            flex-shrink: 0;
-        }
-        #progress-wrap.visible { display: block; }
-        #progress-bar-bg {
-            background: var(--border);
-            border-radius: 99px;
-            height: 4px;
-            overflow: hidden;
-        }
-        #progress-bar {
-            height: 100%;
-            width: 0%;
-            background: var(--blue);
-            border-radius: 99px;
-            transition: width 0.3s ease;
-        }
-        #progress-label {
-            font-size: 10px;
-            color: var(--text-muted);
-            font-family: 'DM Mono', monospace;
-            text-align: right;
-            margin-top: 3px;
-        }
+    } catch (error) {
+        console.error(`❌ Erro [action=${action}]:`, error.message);
+        return res.status(500).json({ success: false, versao: VERSAO, error: error.message });
+    }
+});
 
-        .version-badge {
-            font-family: 'DM Mono', monospace;
-            font-size: 9px;
-            background: rgba(0,0,0,0.08);
-            color: var(--text-muted);
-            padding: 2px 6px;
-            border-radius: 99px;
-            margin: 6px 14px;
-            display: inline-block;
-            flex-shrink: 0;
-        }
-    </style>
-</head>
-<body>
+app.post('/', async (req, res) => {
+    const { action, agentes } = req.body;
+    console.log(`\n📥 POST action=${action} | ${agentes?.length || 0} registros`);
 
-    <div class="header">
-        <span class="header-title">LG CFO</span>
-        <span class="header-sub">MEGA ERP CONNECTOR</span>
-    </div>
-
-    <div class="tabs">
-        <div class="tab active" onclick="switchTab('relat', this)">RELATÓRIOS</div>
-        <div class="tab" onclick="switchTab('agnt', this)">AGENTES</div>
-    </div>
-
-    <div id="status" class="info">
-        <div class="spinner"></div>
-        <span id="status-text">Pronto para operar.</span>
-    </div>
-
-    <div id="progress-wrap">
-        <div id="progress-bar-bg"><div id="progress-bar"></div></div>
-        <div id="progress-label">0%</div>
-    </div>
-
-    <!-- ── RELATÓRIOS ── -->
-    <div id="relat" class="content active">
-
-        <div class="form-group">
-            <label>Módulo</label>
-            <select id="modulo">
-                <option value="list">Razão Contábil</option>
-                <option value="agentes">Lista de Agentes</option>
-            </select>
-        </div>
-
-        <div class="date-row">
-            <div class="form-group">
-                <label>Data Início</label>
-                <input type="date" id="data-inicio">
-            </div>
-            <div class="form-group">
-                <label>Data Fim</label>
-                <input type="date" id="data-fim">
-            </div>
-        </div>
-
-        <div class="date-row">
-            <div class="form-group" style="flex:1;">
-                <label>Máx. Lançamentos</label>
-                <select id="max-lancamentos">
-                    <option value="100">100 — teste rápido</option>
-                    <option value="500">500</option>
-                    <option value="1000">1.000</option>
-                    <option value="5000" selected>5.000 — completo</option>
-                </select>
-            </div>
-            <div class="form-group" style="flex:1;">
-                <label>Tempo decorrido</label>
-                <div id="timer">00:00</div>
-            </div>
-        </div>
-
-        <div class="btn-row">
-            <button id="btn-sync" class="btn">
-                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M1 8a7 7 0 0 1 12-4.9"/><path d="M15 8a7 7 0 0 1-12 4.9"/>
-                    <polyline points="12 3 12 7 16 7"/><polyline points="4 13 4 9 0 9"/>
-                </svg>
-                Baixar para o Excel
-            </button>
-            <button id="btn-cancelar" class="btn btn-cancelar">✕ Parar</button>
-        </div>
-    </div>
-
-    <!-- ── AGENTES ── -->
-    <div id="agnt" class="content">
-        <div class="section-label">Cadastro em Massa</div>
-        <button id="btn-template" class="btn btn-green">
-            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="2" y="2" width="12" height="12" rx="1"/><line x1="5" y1="8" x2="11" y2="8"/><line x1="8" y1="5" x2="8" y2="11"/>
-            </svg>
-            1. Gerar Template de Carga
-        </button>
-        <button id="btn-enviar" class="btn btn-orange" style="margin-top:8px;">
-            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="2" y1="8" x2="14" y2="8"/><polyline points="9 3 14 8 9 13"/>
-            </svg>
-            2. Enviar p/ Mega ERP
-        </button>
-        <p class="agent-note">
-            Preencha o template gerado na Etapa 1<br>
-            e depois execute a Etapa 2 para importar.
-        </p>
-    </div>
-
-    <span class="version-badge" id="version-badge">—</span>
-
-    <script>
-    // ─────────────────────────────────────────────
-    // CONFIGURAÇÃO
-    // ─────────────────────────────────────────────
-    const GOOGLE_WEBAPP_URL = "http://localhost:3000";
-
-    const HEADERS_RAZAO  = ["DATA","LOTE","DOCUMENTO","DOC_FISCAL","DATA_DOC","CONTA","DESC_CONTA","VALOR","D/C","HISTORICO","CENTRO_CUSTO","PROJETO","AGENTE"];
-    const HEADERS_AGENTE = ["CODIGO","NOME","TIPO","CPF_CNPJ","EMAIL","TELEFONE","ATIVO"];
-
-    // ─────────────────────────────────────────────
-    // CONTROLE DE ESTADO
-    // ─────────────────────────────────────────────
-    let _cancelado     = false;
-    let _timerInterval = null;
-    let _timerSegundos = 0;
-
-    function iniciarTimer() {
-        _timerSegundos = 0;
-        $("#timer").text("00:00");
-        _timerInterval = setInterval(() => {
-            _timerSegundos++;
-            const m = String(Math.floor(_timerSegundos / 60)).padStart(2, "0");
-            const s = String(_timerSegundos % 60).padStart(2, "0");
-            $("#timer").text(`${m}:${s}`);
-        }, 1000);
+    if (action !== 'incluirAgentes') {
+        return res.status(400).json({ success: false, error: `Action POST desconhecida: '${action}'` });
     }
 
-    function pararTimer() {
-        clearInterval(_timerInterval);
-        _timerInterval = null;
-    }
+    try {
+        const token = await getMegaToken();
+        let incluidos = 0;
+        let erros = 0;
+        const resultados = [];
 
-    // ─────────────────────────────────────────────
-    // UTILS
-    // ─────────────────────────────────────────────
-    function setStatus(msg, tipo = "info") {
-        $("#status").removeClass("info loading sucesso erro").addClass(tipo);
-        $("#status-text").text(msg);
-    }
-
-    function setProgress(pct, label) {
-        if (pct === null) {
-            $("#progress-wrap").removeClass("visible");
-            $("#progress-bar").css("width", "0%");
-        } else {
-            $("#progress-wrap").addClass("visible");
-            $("#progress-bar").css("width", pct + "%");
-            $("#progress-label").text(label || pct + "%");
-        }
-    }
-
-    function lockBtn(id, locked) {
-        const btn = $("#" + id);
-        btn.prop("disabled", locked);
-        if (id === "btn-sync") {
-            btn.html(locked
-                ? '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 8a7 7 0 0 1 12-4.9"/><path d="M15 8a7 7 0 0 1-12 4.9"/><polyline points="12 3 12 7 16 7"/><polyline points="4 13 4 9 0 9"/></svg> Buscando...'
-                : '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 8a7 7 0 0 1 12-4.9"/><path d="M15 8a7 7 0 0 1-12 4.9"/><polyline points="12 3 12 7 16 7"/><polyline points="4 13 4 9 0 9"/></svg> Baixar para o Excel'
-            );
-        }
-    }
-
-    function validarDatas() {
-        const ini = $("#data-inicio").val();
-        const fim = $("#data-fim").val();
-        const ok  = ini && fim && ini <= fim;
-        $("#data-inicio, #data-fim").toggleClass("invalid", !ok);
-        return ok;
-    }
-
-    function switchTab(id, el) {
-        $(".content").removeClass("active");
-        $(".tab").removeClass("active");
-        $("#" + id).addClass("active");
-        $(el).addClass("active");
-        setStatus("Pronto para operar.", "info");
-        setProgress(null);
-    }
-
-    function normalizarArray(data) {
-        if (Array.isArray(data))               return data;
-        if (data && Array.isArray(data.items)) return data.items;
-        if (data && Array.isArray(data.Items)) return data.Items;
-        if (data && Array.isArray(data.data))  return data.data;
-        if (data && (data.Id || data.id))      return [data];
-        return [];
-    }
-
-    function normalizarItens(detalhe) {
-        if (detalhe && Array.isArray(detalhe.Itens) && detalhe.Itens.length > 0) return detalhe.Itens;
-        if (detalhe && Array.isArray(detalhe.items) && detalhe.items.length > 0) return detalhe.items;
-        if (Array.isArray(detalhe) && detalhe.length > 0)                        return detalhe;
-        if (detalhe && (detalhe.ContaDebito || detalhe.ContaCredito))            return [detalhe];
-        return [];
-    }
-
-    // ─────────────────────────────────────────────
-    // INICIALIZAÇÃO
-    // ─────────────────────────────────────────────
-    Office.onReady((info) => {
-        if (info.host === Office.HostType.Excel) {
-            const hoje     = new Date();
-            const primeiro = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-            const ultimo   = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
-            const fmt      = d => d.toISOString().split("T")[0];
-            $("#data-inicio").val(fmt(primeiro));
-            $("#data-fim").val(fmt(ultimo));
-
-            $("#data-inicio, #data-fim").on("change", validarDatas);
-            $("#btn-sync").on("click", syncData);
-            $("#btn-template").on("click", gerarTemplateAgentes);
-            $("#btn-enviar").on("click", processarInclusoesAgentes);
-        }
-    });
-
-    // ─────────────────────────────────────────────
-    // SYNC PRINCIPAL
-    // ─────────────────────────────────────────────
-    async function syncData() {
-        if (!validarDatas()) {
-            setStatus("Data Fim não pode ser anterior à Data Início.", "erro");
-            return;
-        }
-
-        const modulo         = $("#modulo").val();
-        const dataInicio     = $("#data-inicio").val();
-        const dataFim        = $("#data-fim").val();
-        const maxLancamentos = parseInt($("#max-lancamentos").val());
-
-        // ── ESTIMATIVA (só Razão Contábil) ──
-        if (modulo === "list") {
-            setStatus("Estimando volume de dados...", "loading");
-            setProgress(3, "Verificando...");
+        for (const ag of agentes) {
             try {
-                const urlEst = `${GOOGLE_WEBAPP_URL}?action=estimativa&inicio=${dataInicio}&fim=${dataFim}&nocache=${Date.now()}`;
-                const resEst = await fetch(urlEst);
-                const est    = await resEst.json();
-
-                if (est.success && est.data) {
-                    const { totalLancamentos, estimativaLinhas } = est.data;
-
-                    if (totalLancamentos > maxLancamentos) {
-                        setProgress(null);
-                        const continuar = confirm(
-                            `⚠ Atenção!\n\n` +
-                            `O período selecionado contém ~${totalLancamentos.toLocaleString('pt-BR')} lançamentos.\n` +
-                            `Estimativa: ~${estimativaLinhas.toLocaleString('pt-BR')} linhas no Excel.\n\n` +
-                            `Seu filtro atual limita a ${maxLancamentos.toLocaleString('pt-BR')} lançamentos.\n\n` +
-                            `Deseja continuar com o limite atual?\n` +
-                            `(Para extrair tudo, aumente "Máx. Lançamentos")`
-                        );
-                        if (!continuar) {
-                            setStatus("Operação cancelada pelo usuário.", "info");
-                            return;
-                        }
-                    } else {
-                        setStatus(`~${totalLancamentos} lançamentos (~${estimativaLinhas} linhas). Iniciando...`, "loading");
+                await axios.post(
+                    `${BASE_URL}/api/agentes/agente`,
+                    ag,
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'TenantId': TENANT_ID,
+                            'Content-Type': 'application/json'
+                        },
+                        timeout: 10000
                     }
-                }
-            } catch (e) {
-                console.warn("[LG CFO] Estimativa falhou, prosseguindo:", e.message);
+                );
+                incluidos++;
+                resultados.push({ status: "OK" });
+                console.log(`✅ Agente incluído: ${ag.NOME_RAZAO}`);
+            } catch (err) {
+                erros++;
+                const msg = err.response?.data?.message || err.message;
+                resultados.push({ status: `ERRO: ${msg}` });
+                console.error(`❌ Erro ao incluir ${ag.NOME_RAZAO}: ${msg}`);
             }
         }
 
-        _cancelado = false;
-        lockBtn("btn-sync", true);
-        $("#btn-cancelar").css("display", "flex");
-        $("#btn-cancelar").off("click").on("click", () => {
-            _cancelado = true;
-            setStatus("Cancelando após lote atual...", "loading");
-        });
+        return res.json({ success: true, versao: VERSAO, incluidos, erros, resultados });
 
-        iniciarTimer();
-        setStatus("Buscando lançamentos...", "loading");
-        setProgress(5, "Conectando...");
-
-        try {
-            // ── AGENTES (fluxo simples) ──
-            if (modulo === "agentes") {
-                const url    = `${GOOGLE_WEBAPP_URL}?action=agentes&nocache=${Date.now()}`;
-                const res    = await fetch(url);
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                const result = await res.json();
-                if (!result.success) throw new Error(result.error);
-                $("#version-badge").text(result.versao || "—");
-                const payload = normalizarArray(result.data);
-                if (!payload.length) {
-                    setStatus("Nenhum agente encontrado.", "info");
-                    setProgress(null); return;
-                }
-                await gravarNoExcel("Agentes", montarTabelaAgentes(payload), null);
-                setStatus(`✓ ${payload.length} agente(s) importado(s). Tempo: ${$("#timer").text()}`, "sucesso");
-                setProgress(null); return;
-            }
-
-            // ── RAZÃO CONTÁBIL: ETAPA 1 — paginação ──
-            let todosCabecalhos = [];
-            let page = 1;
-            const limit = 100;
-
-            while (true) {
-                if (_cancelado) break;
-
-                const url = `${GOOGLE_WEBAPP_URL}?action=list&inicio=${dataInicio}&fim=${dataFim}&page=${page}&limit=${limit}&nocache=${Date.now()}`;
-                const res = await fetch(url);
-                if (!res.ok) throw new Error(`HTTP ${res.status} na página ${page}`);
-                const result = await res.json();
-                if (!result.success) throw new Error(result.error);
-                $("#version-badge").text(result.versao || "—");
-
-                const pagina = normalizarArray(result.data);
-                todosCabecalhos = todosCabecalhos.concat(pagina);
-
-                setStatus(`Página ${page} — ${todosCabecalhos.length} lançamentos...`, "loading");
-                setProgress(Math.min(30, page * 3), `Página ${page} · ${$("#timer").text()}`);
-
-                if (pagina.length < limit) break;
-                if (todosCabecalhos.length >= maxLancamentos) break;
-                page++;
-                if (page > 50) break;
-            }
-
-            todosCabecalhos = todosCabecalhos.slice(0, maxLancamentos);
-
-            if (_cancelado && todosCabecalhos.length === 0) {
-                setStatus("Cancelado antes de obter dados.", "info");
-                setProgress(null); return;
-            }
-
-            setStatus(`${todosCabecalhos.length} lançamentos. Buscando detalhes...`, "loading");
-            setProgress(35, `Iniciando drilldown · ${$("#timer").text()}`);
-
-            // ── ETAPA 2 — drilldown em lotes paralelos ──
-            const LOTE = 10;
-            let dadosParaExcel = [HEADERS_RAZAO];
-
-            for (let i = 0; i < todosCabecalhos.length; i += LOTE) {
-                if (_cancelado) break;
-
-                const lote = todosCabecalhos.slice(i, i + LOTE);
-
-                const promessas = lote.map(lanc => {
-                    const id = lanc.Id || lanc.id;
-                    if (!id) return Promise.resolve({ ...lanc, Itens: [] });
-                    const url = `${GOOGLE_WEBAPP_URL}?action=detalhe&id=${id}&nocache=${Date.now()}`;
-                    return fetch(url)
-                        .then(r => r.json())
-                        .then(r => ({ ...lanc, Itens: normalizarItens(r.data) }))
-                        .catch(() => ({ ...lanc, Itens: [] }));
-                });
-
-                const resultados = await Promise.all(promessas);
-                resultados.forEach(lanc => {
-                    montarTabelaRazao([lanc]).slice(1).forEach(row => dadosParaExcel.push(row));
-                });
-
-                const processados = Math.min(i + LOTE, todosCabecalhos.length);
-                const pct = 35 + Math.round((processados / todosCabecalhos.length) * 60);
-                setProgress(Math.min(95, pct), `${processados} / ${todosCabecalhos.length} · ${$("#timer").text()}`);
-                setStatus(`Processando ${processados} de ${todosCabecalhos.length}...`, "loading");
-            }
-
-            // ── ETAPA 3 — grava no Excel ──
-            setStatus("Gravando no Excel...", "loading");
-            setProgress(97, `Escrevendo planilha · ${$("#timer").text()}`);
-            await gravarNoExcel("Razao_Detalhado", dadosParaExcel, 7);
-
-            const totalLinhas = dadosParaExcel.length - 1;
-            const tempoFinal  = $("#timer").text();
-            setProgress(100, "Concluído");
-            setStatus(
-                _cancelado
-                    ? `⚠ Parcial: ${totalLinhas} linha(s) em ${tempoFinal}.`
-                    : `✓ ${totalLinhas} linha(s) importada(s) em ${tempoFinal}.`,
-                _cancelado ? "info" : "sucesso"
-            );
-            setTimeout(() => setProgress(null), 1500);
-
-        } catch (error) {
-            setStatus(`Erro: ${error.message}`, "erro");
-            setProgress(null);
-            console.error("[LG CFO]", error);
-        } finally {
-            pararTimer();
-            lockBtn("btn-sync", false);
-            $("#btn-cancelar").hide();
-        }
+    } catch (error) {
+        console.error('❌ Erro geral no POST:', error.message);
+        return res.status(500).json({ success: false, versao: VERSAO, error: error.message });
     }
+});
 
-    // ─────────────────────────────────────────────
-    // MONTADORES DE TABELA
-    // ─────────────────────────────────────────────
-    function montarTabelaRazao(payload) {
-        const rows = [HEADERS_RAZAO];
+app.get('/health', (req, res) => {
+    res.json({ status: 'UP', versao: VERSAO, time: new Date().toISOString() });
+});
 
-        payload.forEach(lanc => {
-            if (!lanc.Itens || lanc.Itens.length === 0) {
-                rows.push([lanc.Data || "", lanc.CodigoLote || "", lanc.Codigo || "",
-                    "", "", "SEM ITENS", "", 0, "", "", "", "", ""]);
-                return;
-            }
-
-            lanc.Itens.forEach(item => {
-                const valor = parseFloat(item.Valor || item.ValorLancamento) || 0;
-
-                let hist = item.Complemento || item.Historico || "";
-                if (typeof hist === "object") hist = hist.Descricao || "";
-
-                let docFiscal = item.Documento?.Numero || item.Documento?.Codigo || item.NumeroDocumento || "";
-                let dataDoc   = item.Documento?.Data   || item.DataDocumento || "";
-
-                let cc = "";
-                if (item.RateiosCentroCusto?.length > 0)
-                    cc = item.RateiosCentroCusto[0].CentroCusto?.Extenso
-                      || item.RateiosCentroCusto[0].CentroCusto?.Reduzido
-                      || item.RateiosCentroCusto[0].CentroCusto?.Nome || "";
-
-                let proj = "";
-                if (item.RateiosProjeto?.length > 0)
-                    proj = item.RateiosProjeto[0].Projeto?.Extenso
-                         || item.RateiosProjeto[0].Projeto?.Reduzido
-                         || item.RateiosProjeto[0].Projeto?.Nome || "";
-
-                let agente = item.Agente?.Nome || item.Agente?.NomeRazao || item.NomeAgente || "";
-                if (typeof agente === "object") agente = agente.Nome || "";
-
-                const base = [lanc.Data || "", lanc.CodigoLote || "", lanc.Codigo || "", docFiscal, dataDoc];
-                let temLinha = false;
-
-                if (item.ContaDebito) {
-                    rows.push([...base,
-                        item.ContaDebito.Extenso  || item.ContaDebito.Reduzido  || "",
-                        item.ContaDebito.Descricao  || "",
-                        valor, "D", hist, cc, proj, agente]);
-                    temLinha = true;
-                }
-                if (item.ContaCredito) {
-                    rows.push([...base,
-                        item.ContaCredito.Extenso || item.ContaCredito.Reduzido || "",
-                        item.ContaCredito.Descricao || "",
-                        valor, "C", hist, cc, proj, agente]);
-                    temLinha = true;
-                }
-                if (!temLinha) {
-                    rows.push([...base, "VERIFICAR LANÇAMENTO", "", valor, "", hist, cc, proj, agente]);
-                }
-            });
-        });
-
-        return rows;
-    }
-
-    function montarTabelaAgentes(payload) {
-        const rows = [HEADERS_AGENTE];
-        const lista = Array.isArray(payload) ? payload
-                    : payload.items || payload.Items || payload.data || [payload];
-        lista.forEach(ag => {
-            rows.push([
-                ag.Codigo   || ag.Id         || "",
-                ag.Nome     || ag.NomeRazao  || "",
-                ag.Tipo     || ag.TipoAgente || "",
-                ag.CpfCnpj  || ag.Documento  || "",
-                ag.Email    || "",
-                ag.Telefone || ag.Celular    || "",
-                ag.Ativo !== undefined ? (ag.Ativo ? "Sim" : "Não") : ""
-            ]);
-        });
-        return rows;
-    }
-
-    // ─────────────────────────────────────────────
-    // GRAVAR NO EXCEL
-    // ─────────────────────────────────────────────
-    async function gravarNoExcel(sheetName, dados, colunaValor) {
-        await Excel.run(async (context) => {
-            let sheet = context.workbook.worksheets.getItemOrNullObject(sheetName);
-            await context.sync();
-            if (sheet.isNullObject) sheet = context.workbook.worksheets.add(sheetName);
-            else sheet.getUsedRange().clear();
-            sheet.activate();
-
-            const numLinhas = dados.length;
-            const numCols   = dados[0].length;
-            const range     = sheet.getRangeByIndexes(0, 0, numLinhas, numCols);
-            range.values    = dados;
-
-            if (colunaValor !== null && numLinhas > 1) {
-                const valorRange = sheet.getRangeByIndexes(1, colunaValor, numLinhas - 1, 1);
-                valorRange.numberFormat = Array(numLinhas - 1).fill(["#,##0.00"]);
-            }
-
-            const headerRange = sheet.getRangeByIndexes(0, 0, 1, numCols);
-            headerRange.format.fill.color = "#0078d4";
-            headerRange.format.font.color = "#ffffff";
-            headerRange.format.font.bold  = true;
-            headerRange.format.font.size  = 10;
-
-            range.format.autofitColumns();
-            await context.sync();
-        });
-    }
-
-    // ─────────────────────────────────────────────
-    // AGENTES — TEMPLATE
-    // ─────────────────────────────────────────────
-    async function gerarTemplateAgentes() {
-        lockBtn("btn-template", true);
-        setStatus("Gerando template...", "loading");
-        try {
-            await Excel.run(async (context) => {
-                const sheetName = "Template_Agentes";
-                let sheet = context.workbook.worksheets.getItemOrNullObject(sheetName);
-                await context.sync();
-                if (sheet.isNullObject) sheet = context.workbook.worksheets.add(sheetName);
-                else sheet.getUsedRange().clear();
-                sheet.activate();
-
-                const colunas = ["NOME_RAZAO","TIPO","CPF_CNPJ","EMAIL","TELEFONE","ENDERECO","MUNICIPIO","UF","CEP"];
-                const exemplo = [["Empresa Exemplo Ltda","J","00.000.000/0001-00","contato@exemplo.com.br","(11) 99999-9999","Rua das Flores, 100","São Paulo","SP","01001-000"]];
-
-                const h = sheet.getRangeByIndexes(0, 0, 1, colunas.length);
-                h.values = [colunas];
-                h.format.fill.color = "#107c41";
-                h.format.font.color = "#ffffff";
-                h.format.font.bold  = true;
-
-                const e = sheet.getRangeByIndexes(1, 0, 1, colunas.length);
-                e.values = exemplo;
-                e.format.font.italic = true;
-                e.format.font.color  = "#888888";
-
-                sheet.getRangeByIndexes(0, 0, 2, colunas.length).format.autofitColumns();
-                await context.sync();
-            });
-            setStatus("✓ Template gerado na aba 'Template_Agentes'.", "sucesso");
-        } catch (error) {
-            setStatus(`Erro: ${error.message}`, "erro");
-            console.error("[LG CFO]", error);
-        } finally {
-            lockBtn("btn-template", false);
-        }
-    }
-
-    // ─────────────────────────────────────────────
-    // AGENTES — ENVIO
-    // ─────────────────────────────────────────────
-    async function processarInclusoesAgentes() {
-        lockBtn("btn-enviar", true);
-        setStatus("Lendo Template_Agentes...", "loading");
-        setProgress(5, "Lendo dados...");
-        try {
-            let agentes = [];
-            await Excel.run(async (context) => {
-                const sheet = context.workbook.worksheets.getItemOrNullObject("Template_Agentes");
-                await context.sync();
-                if (sheet.isNullObject) throw new Error("Aba 'Template_Agentes' não encontrada. Gere o template primeiro.");
-                const usedRange = sheet.getUsedRange();
-                usedRange.load("values");
-                await context.sync();
-                const values = usedRange.values;
-                if (values.length < 2) throw new Error("Nenhum dado encontrado. Preencha ao menos uma linha.");
-                const headers = values[0];
-                agentes = values.slice(1)
-                    .filter(row => row.some(c => c !== "" && c !== null))
-                    .map(row => {
-                        const obj = {};
-                        headers.forEach((h, i) => { obj[h] = row[i] || ""; });
-                        return obj;
-                    });
-            });
-
-            if (!agentes.length) throw new Error("Nenhum agente válido encontrado.");
-
-            setStatus(`Enviando ${agentes.length} agente(s)...`, "loading");
-            setProgress(30, `0 / ${agentes.length}`);
-
-            const res = await fetch(GOOGLE_WEBAPP_URL, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action: "incluirAgentes", agentes })
-            });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const result = await res.json();
-            if (!result.success) throw new Error(result.error || "Erro no servidor.");
-
-            const ok   = result.incluidos || 0;
-            const fail = result.erros     || 0;
-
-            await Excel.run(async (context) => {
-                const sheet     = context.workbook.worksheets.getItem("Template_Agentes");
-                const colResult = sheet.getRangeByIndexes(0, 9, 1, 1);
-                colResult.values = [["STATUS_IMPORTACAO"]];
-                colResult.format.fill.color = "#107c41";
-                colResult.format.font.color = "#ffffff";
-                colResult.format.font.bold  = true;
-                if (result.resultados?.length > 0) {
-                    const statusRange = sheet.getRangeByIndexes(1, 9, result.resultados.length, 1);
-                    statusRange.values = result.resultados.map(r => [r.status || "OK"]);
-                }
-                await context.sync();
-            });
-
-            setProgress(100, "Concluído");
-            setStatus(`✓ ${ok} incluído(s) | ${fail} erro(s). Veja STATUS_IMPORTACAO.`, ok > 0 ? "sucesso" : "erro");
-            setTimeout(() => setProgress(null), 1500);
-
-        } catch (error) {
-            setStatus(`Erro: ${error.message}`, "erro");
-            setProgress(null);
-            console.error("[LG CFO]", error);
-        } finally {
-            lockBtn("btn-enviar", false);
-        }
-    }
-    </script>
-</body>
-</html>
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`\n=========================================`);
+    console.log(`🚀 LG CFO Server: http://localhost:${PORT}`);
+    console.log(`📡 Versão: ${VERSAO}`);
+    console.log(`=========================================\n`);
+});
