@@ -7,11 +7,11 @@ const cors = require('cors');
 const app = express();
 const tokenCache = new NodeCache({ stdTTL: 3600 });
 
-const BASE_URL   = process.env.MEGA_URL;
-const USER       = process.env.MEGA_USER;
-const PASS       = process.env.MEGA_PASS;
-const TENANT_ID  = process.env.MEGA_TENANT;
-const VERSAO     = "v8.0 - Node.js";
+const BASE_URL  = process.env.MEGA_URL;
+const USER      = process.env.MEGA_USER;
+const PASS      = process.env.MEGA_PASS;
+const TENANT_ID = process.env.MEGA_TENANT;
+const VERSAO    = "v8.0 - Node.js";
 
 app.use(cors());
 app.use(express.json());
@@ -47,22 +47,61 @@ async function chamarMega(url, token) {
 }
 
 // ─────────────────────────────────────────────
-// ROTA PRINCIPAL — despacha por action
+// ROTA PRINCIPAL GET — despacha por action
 // ─────────────────────────────────────────────
 app.get('/', async (req, res) => {
     const action = req.query.action;
-    console.log(`\n📥 action=${action} | ${JSON.stringify(req.query)}`);
+    console.log(`\n📥 GET action=${action} | params: ${JSON.stringify(req.query)}`);
 
     try {
         const token = await getMegaToken();
 
-        // ── LIST: página de cabeçalhos ──────────────────────────
+        // ── ESTIMATIVA ────────────────────────────────────────────
+        if (action === 'estimativa') {
+            const { inicio, fim } = req.query;
+            if (!inicio || !fim)
+                return res.status(400).json({ success: false, error: "Parâmetros 'inicio' e 'fim' são obrigatórios." });
+
+            // Tenta pegar o total com limit=1 primeiro (mais rápido)
+            const urlPrimeira = `${BASE_URL}/api/contabilidadelancamentos/lancamento`
+                + `?DataInicial=${inicio}&DataFinal=${fim}&Page=1&Limit=1`;
+
+            console.log(`🔍 ESTIMATIVA (tentativa rápida): ${urlPrimeira}`);
+            const dataPrimeira = await chamarMega(urlPrimeira, token);
+
+            // Verifica se a API retornou campo de total
+            let total =
+                dataPrimeira.total      || dataPrimeira.Total      ||
+                dataPrimeira.totalCount || dataPrimeira.TotalCount ||
+                dataPrimeira.count      || dataPrimeira.Count      || 0;
+
+            // Se não veio total, busca tudo de uma vez só para contar
+            if (!total) {
+                console.log(`🔍 ESTIMATIVA (contagem completa)...`);
+                const urlContar = `${BASE_URL}/api/contabilidadelancamentos/lancamento`
+                    + `?DataInicial=${inicio}&DataFinal=${fim}&Page=1&Limit=9999`;
+                const dataContar = await chamarMega(urlContar, token);
+                const arr = Array.isArray(dataContar) ? dataContar
+                    : dataContar.items || dataContar.Items || dataContar.data || [];
+                total = arr.length;
+            }
+
+            // Média conservadora: 2 linhas por lançamento (1 débito + 1 crédito)
+            const estimativaLinhas = total * 2;
+            console.log(`✅ ESTIMATIVA: ${total} lançamentos → ~${estimativaLinhas} linhas`);
+
+            return res.json({
+                success: true,
+                versao: VERSAO,
+                data: { totalLancamentos: total, estimativaLinhas }
+            });
+        }
+
+        // ── LIST: página de cabeçalhos ────────────────────────────
         if (action === 'list') {
             const { inicio, fim, page = 1, limit = 100 } = req.query;
-
-            if (!inicio || !fim) {
+            if (!inicio || !fim)
                 return res.status(400).json({ success: false, error: "Parâmetros 'inicio' e 'fim' são obrigatórios." });
-            }
 
             const url = `${BASE_URL}/api/contabilidadelancamentos/lancamento`
                 + `?DataInicial=${inicio}&DataFinal=${fim}`
@@ -77,13 +116,11 @@ app.get('/', async (req, res) => {
             return res.json({ success: true, versao: VERSAO, data: lancamentos });
         }
 
-        // ── DETALHE: itens de um lançamento específico ──────────
+        // ── DETALHE: itens de um lançamento específico ────────────
         if (action === 'detalhe') {
             const { id } = req.query;
-
-            if (!id) {
+            if (!id)
                 return res.status(400).json({ success: false, error: "Parâmetro 'id' é obrigatório." });
-            }
 
             const expandParams = [
                 "Itens",
@@ -104,12 +141,11 @@ app.get('/', async (req, res) => {
             return res.json({ success: true, versao: VERSAO, data });
         }
 
-        // ── AGENTES: lista de agentes ───────────────────────────
+        // ── AGENTES: lista de agentes ─────────────────────────────
         if (action === 'agentes') {
             const url = `${BASE_URL}/api/agentes/agente`;
             console.log(`🔍 AGENTES: ${url}`);
             const data = await chamarMega(url, token);
-
             const agentes = Array.isArray(data) ? data
                 : data.items || data.Items || data.data || [];
 
@@ -117,8 +153,11 @@ app.get('/', async (req, res) => {
             return res.json({ success: true, versao: VERSAO, data: agentes });
         }
 
-        // ── ACTION DESCONHECIDA ─────────────────────────────────
-        return res.status(400).json({ success: false, error: `Action desconhecida: '${action}'` });
+        // ── ACTION DESCONHECIDA ───────────────────────────────────
+        return res.status(400).json({
+            success: false,
+            error: `Action desconhecida: '${action}'. Use: estimativa, list, detalhe, agentes.`
+        });
 
     } catch (error) {
         console.error(`❌ Erro [action=${action}]:`, error.message);
@@ -127,11 +166,11 @@ app.get('/', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────
-// POST — inclusão de agentes
+// ROTA POST — inclusão de agentes
 // ─────────────────────────────────────────────
 app.post('/', async (req, res) => {
     const { action, agentes } = req.body;
-    console.log(`\n📥 POST action=${action} | ${agentes?.length} registros`);
+    console.log(`\n📥 POST action=${action} | ${agentes?.length || 0} registros`);
 
     if (action !== 'incluirAgentes') {
         return res.status(400).json({ success: false, error: `Action POST desconhecida: '${action}'` });
