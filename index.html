@@ -643,96 +643,89 @@
     // ─────────────────────────────────────────────
     // MONTADORES DE TABELA
     // ─────────────────────────────────────────────
-    function montarTabelaRazao(payload) {
-        const rows = [HEADERS_RAZAO];
+function montarTabelaRazao(payload) {
+    const rows = [HEADERS_RAZAO];
 
-        payload.forEach(lanc => {
-            if (!lanc.Itens || lanc.Itens.length === 0) {
-                rows.push([lanc.Data || "", lanc.CodigoLote || "", lanc.Codigo || "",
-                    "", "", "", "", 0, "", "", "", "", ""]);
-                return;
+    payload.forEach(lanc => {
+        if (!lanc.Itens || lanc.Itens.length === 0) {
+            rows.push([lanc.Data || "", lanc.CodigoLote || "", lanc.Codigo || "",
+                "", "", "", "", 0, "", "", "", "", ""]);
+            return;
+        }
+
+        lanc.Itens.forEach(item => {
+            const valor = parseFloat(item.Valor || 0);
+
+            // Histórico
+            let hist = item.Complemento || "";
+            hist = hist.replace(/\u0000/g, "").trim();
+
+            // Documento fiscal
+            const docFiscal = item.Documento || "";
+            const dataDoc   = lanc.Data || "";
+
+            // Agente
+            const agente = item.Agente?.Nome || item.Agente?.NomeFantasia || "";
+
+            // Centro de Custo — usa _CentroCusto enriquecido pelo servidor
+            let cc = "";
+            if (item.RateiosCentroCusto?.length > 0) {
+                const r = item.RateiosCentroCusto[0];
+                const c = r._CentroCusto || r.CentroCusto || r;
+                const red  = c.reduzido  || c.Reduzido  || c.Codigo || "";
+                const desc = c.descricao || c.Descricao || c.Nome   || "";
+                cc = red && desc ? `${red} - ${desc}` : (red || desc || "");
             }
 
-            lanc.Itens.forEach(item => {
-                const valor = parseFloat(item.Valor || item.ValorLancamento) || 0;
+            // Projeto — usa _Projeto enriquecido pelo servidor
+            let proj = "";
+            if (item.RateiosProjeto?.length > 0) {
+                const r = item.RateiosProjeto[0];
+                const p = r._Projeto || r.Projeto || r;
+                const red  = p.reduzido  || p.Reduzido  || p.Codigo || "";
+                const desc = p.descricao || p.Descricao || p.Nome   || "";
+                proj = red && desc ? `${red} - ${desc}` : (red || desc || "");
+            }
 
-                // Histórico
-                let hist = item.Complemento || item.Historico || "";
-                if (typeof hist === "object") hist = hist.Descricao || "";
+            const base = [
+                lanc.Data       || "",
+                lanc.CodigoLote || "",
+                lanc.Codigo     || "",
+                docFiscal,
+                dataDoc
+            ];
 
-                // Documento fiscal
-                let docFiscal = item.Documento?.Numero
-                             || item.Documento?.Codigo
-                             || item.NumeroDocumento || "";
-                let dataDoc   = item.Documento?.Data
-                             || item.DataDocumento   || "";
+            // Linha Débito — usa _ContaDebito enriquecido
+            if (item._ContaDebito) {
+                rows.push([...base,
+                    item._ContaDebito.extenso,
+                    item._ContaDebito.descricao,
+                    valor, "D", hist, cc, proj, agente
+                ]);
+            }
 
-                // Centro de Custo — Reduzido + Descrição
-                let cc = "";
-                if (item.RateiosCentroCusto?.length > 0) {
-                    const c = item.RateiosCentroCusto[0].CentroCusto;
-                    if (c) {
-                        const red  = c.Reduzido || c.Codigo || "";
-                        const desc = c.Nome     || c.Extenso || "";
-                        cc = red && desc ? `${red} - ${desc}` : (red || desc);
-                    }
-                }
+            // Linha Crédito — usa _ContaCredito enriquecido
+            if (item._ContaCredito) {
+                rows.push([...base,
+                    item._ContaCredito.extenso,
+                    item._ContaCredito.descricao,
+                    valor, "C", hist, cc, proj, agente
+                ]);
+            }
 
-                // Projeto — Reduzido + Descrição
-                let proj = "";
-                if (item.RateiosProjeto?.length > 0) {
-                    const p = item.RateiosProjeto[0].Projeto;
-                    if (p) {
-                        const red  = p.Reduzido || p.Codigo || "";
-                        const desc = p.Nome     || p.Extenso || "";
-                        proj = red && desc ? `${red} - ${desc}` : (red || desc);
-                    }
-                }
-
-                // Agente
-                let agente = item.Agente?.Nome
-                          || item.Agente?.NomeRazao
-                          || item.NomeAgente || "";
-                if (typeof agente === "object") agente = agente.Nome || "";
-
-                const base = [
-                    lanc.Data       || "",
-                    lanc.CodigoLote || "",
-                    lanc.Codigo     || "",
-                    docFiscal,
-                    dataDoc
-                ];
-
-                // Linha Débito
-                if (item.ContaDebito) {
-                    rows.push([...base,
-                        item.ContaDebito.Extenso   || item.ContaDebito.Reduzido  || "",
-                        item.ContaDebito.Descricao  || "",
-                        valor, "D", hist, cc, proj, agente
-                    ]);
-                }
-
-                // Linha Crédito
-                if (item.ContaCredito) {
-                    rows.push([...base,
-                        item.ContaCredito.Extenso  || item.ContaCredito.Reduzido || "",
-                        item.ContaCredito.Descricao || "",
-                        valor, "C", hist, cc, proj, agente
-                    ]);
-                }
-
-                // Fallback se não tiver conta identificada
-                if (!item.ContaDebito && !item.ContaCredito) {
-                    rows.push([...base,
-                        "VERIFICAR LANÇAMENTO", "", valor, "", hist, cc, proj, agente
-                    ]);
-                }
-            });
+            // Fallback
+            if (!item._ContaDebito && !item._ContaCredito) {
+                rows.push([...base,
+                    item.ReduzidoContaDebito || item.ReduzidoContaCredito || "VERIFICAR",
+                    "", valor, "", hist, cc, proj, agente
+                ]);
+            }
         });
+    });
 
-        return rows;
-    }
-
+    return rows;
+}
+        
     function montarTabelaAgentes(payload) {
         const rows = [HEADERS_AGENTE];
         const lista = Array.isArray(payload) ? payload
