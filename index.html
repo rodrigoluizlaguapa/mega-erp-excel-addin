@@ -32,82 +32,51 @@
             --text-muted: #666666;
             --radius:     6px;
         }
-
         * { box-sizing: border-box; margin: 0; padding: 0; }
-
-        body {
-            font-family: 'DM Sans', sans-serif;
-            font-size: 13px;
-            background: var(--bg);
-            color: var(--text);
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .header {
-            background: var(--blue);
-            padding: 10px 14px 8px;
-            display: flex;
-            align-items: baseline;
-            gap: 8px;
-            flex-shrink: 0;
-        }
+        body { font-family: 'DM Sans', sans-serif; font-size: 13px; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; }
+        .header { background: var(--blue); padding: 10px 14px 8px; display: flex; align-items: baseline; gap: 8px; flex-shrink: 0; }
         .header-title { font-size: 14px; font-weight: 700; color: #fff; letter-spacing: 0.02em; }
         .header-sub { font-family: 'DM Mono', monospace; font-size: 10px; color: rgba(255,255,255,0.65); letter-spacing: 0.04em; }
-
         .tabs { display: flex; background: var(--surface); border-bottom: 2px solid var(--border); flex-shrink: 0; }
         .tab { flex: 1; padding: 10px 0; text-align: center; cursor: pointer; font-size: 11px; font-weight: 700; color: var(--text-muted); border-bottom: 3px solid transparent; margin-bottom: -2px; letter-spacing: 0.06em; transition: color 0.15s, border-color 0.15s; }
         .tab:hover { color: var(--blue); }
         .tab.active { color: var(--blue); border-bottom-color: var(--blue); }
-
         #status { margin: 12px 14px 0; font-size: 12px; font-weight: 500; padding: 9px 12px; border-radius: var(--radius); border: 1px solid var(--blue-pale); background: var(--blue-pale); color: var(--blue-dark); display: flex; align-items: center; gap: 8px; min-height: 38px; transition: background 0.25s, color 0.25s, border-color 0.25s; flex-shrink: 0; }
         #status.loading { background: var(--warn-pale); color: var(--warn-text); border-color: var(--warn-border); }
-        #status.sucesso { background: var(--ok-pale);   color: var(--ok-text);   border-color: var(--ok-border); }
-        #status.erro    { background: var(--red-pale);  color: var(--red-text);  border-color: var(--red-border); }
-
+        #status.sucesso { background: var(--ok-pale); color: var(--ok-text); border-color: var(--ok-border); }
+        #status.erro { background: var(--red-pale); color: var(--red-text); border-color: var(--red-border); }
         .spinner { width: 14px; height: 14px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; display: none; flex-shrink: 0; }
         #status.loading .spinner { display: block; }
         @keyframes spin { to { transform: rotate(360deg); } }
-
         .content { display: none; padding: 14px; flex: 1; overflow-y: auto; }
         .content.active { display: block; }
-
         .form-group { margin-bottom: 13px; }
         label { font-size: 11px; font-weight: 700; display: block; margin-bottom: 4px; color: var(--text-muted); letter-spacing: 0.04em; text-transform: uppercase; }
-
         select, input[type="date"] { width: 100%; padding: 7px 9px; border: 1px solid var(--border); border-radius: var(--radius); font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--text); background: var(--surface); appearance: none; transition: border-color 0.15s, box-shadow 0.15s; }
         select:focus, input:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(0,120,212,0.15); }
         input.invalid { border-color: var(--orange); box-shadow: 0 0 0 3px rgba(200,75,0,0.12); }
-
         .date-row { display: flex; gap: 10px; }
         .date-row .form-group { flex: 1; }
-
         #timer { padding: 7px 9px; border: 1px solid var(--border); border-radius: var(--radius); font-family: 'DM Mono', monospace; font-size: 13px; color: var(--text-muted); background: var(--bg); text-align: center; }
-
         .btn { display: flex; align-items: center; justify-content: center; gap: 7px; background: var(--blue); color: #fff; border: none; padding: 10px 14px; width: 100%; cursor: pointer; font-family: 'DM Sans', sans-serif; font-weight: 700; font-size: 12px; letter-spacing: 0.04em; border-radius: var(--radius); margin-top: 10px; transition: background 0.15s, opacity 0.15s, transform 0.1s; }
         .btn:hover:not(:disabled) { background: var(--blue-dark); transform: translateY(-1px); }
         .btn:active:not(:disabled) { transform: translateY(0); }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .btn-green  { background: var(--green); }
-        .btn-green:hover:not(:disabled)  { background: var(--green-dark); }
+        .btn-green { background: var(--green); }
+        .btn-green:hover:not(:disabled) { background: var(--green-dark); }
         .btn-orange { background: var(--orange); }
         .btn-orange:hover:not(:disabled) { background: var(--orange-dark); }
-
         .btn-row { display: flex; gap: 8px; }
         .btn-row .btn { flex: 3; }
         .btn-row .btn-cancelar { flex: 1; background: var(--orange); display: none; }
         .btn-row .btn-cancelar:hover:not(:disabled) { background: var(--orange-dark); }
-
         .section-label { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; color: var(--text-muted); text-transform: uppercase; margin: 16px 0 6px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
         .agent-note { font-size: 11px; color: var(--text-muted); margin-top: 14px; text-align: center; line-height: 1.5; }
-
         #progress-wrap { margin: 10px 14px 0; display: none; flex-shrink: 0; }
         #progress-wrap.visible { display: block; }
         #progress-bar-bg { background: var(--border); border-radius: 99px; height: 4px; overflow: hidden; }
         #progress-bar { height: 100%; width: 0%; background: var(--blue); border-radius: 99px; transition: width 0.3s ease; }
         #progress-label { font-size: 10px; color: var(--text-muted); font-family: 'DM Mono', monospace; text-align: right; margin-top: 3px; }
-
         .version-badge { font-family: 'DM Mono', monospace; font-size: 9px; background: rgba(0,0,0,0.08); color: var(--text-muted); padding: 2px 6px; border-radius: 99px; margin: 6px 14px; display: inline-block; flex-shrink: 0; }
     </style>
 </head>
@@ -203,12 +172,12 @@
     <script>
     const GOOGLE_WEBAPP_URL = "http://localhost:3000";
 
-    const HEADERS_RAZAO  = ["DATA","LOTE","DOCUMENTO","DOC_FISCAL","CONTA","DESC_CONTA","VALOR","D/C","HISTORICO","CENTRO_CUSTO","PROJETO","AGENTE"];
+    // Campos confirmados pela API:
+    // DATA, LOTE, DOCUMENTO, DOC_FISCAL, CONTA, VALOR, D/C, HISTORICO, CENTRO_CUSTO, AGENTE
+    const HEADERS_RAZAO  = ["DATA","LOTE","DOCUMENTO","DOC_FISCAL","CONTA","VALOR","D/C","HISTORICO","CENTRO_CUSTO","AGENTE"];
     const HEADERS_AGENTE = ["CODIGO","NOME","TIPO","CPF_CNPJ","EMAIL","TELEFONE","ATIVO"];
 
-    let _cancelado     = false;
-    let _timerInterval = null;
-    let _timerSegundos = 0;
+    let _cancelado = false, _timerInterval = null, _timerSegundos = 0;
 
     function iniciarTimer() {
         _timerSegundos = 0;
@@ -280,7 +249,7 @@
         if (detalhe && Array.isArray(detalhe.Itens) && detalhe.Itens.length > 0) return detalhe.Itens;
         if (detalhe && Array.isArray(detalhe.items) && detalhe.items.length > 0) return detalhe.items;
         if (Array.isArray(detalhe) && detalhe.length > 0)                        return detalhe;
-        if (detalhe && (detalhe.ContaDebito || detalhe.ContaCredito))            return [detalhe];
+        if (detalhe && (detalhe.ReduzidoContaDebito || detalhe.ReduzidoContaCredito)) return [detalhe];
         return [];
     }
 
@@ -423,7 +392,7 @@
 
             setStatus("Gravando no Excel...", "loading");
             setProgress(97, `Escrevendo planilha · ${$("#timer").text()}`);
-            await gravarNoExcel("Razao_Detalhado", dadosParaExcel, 6);
+            await gravarNoExcel("Razao_Detalhado", dadosParaExcel, 5);
 
             const totalLinhas = dadosParaExcel.length - 1;
             const tempoFinal  = $("#timer").text();
@@ -448,7 +417,11 @@
     }
 
     // ─────────────────────────────────────────────
-    // MONTADOR RAZÃO — mapeamento definitivo
+    // MONTADOR RAZÃO — mapeamento definitivo v12
+    // Campos reais confirmados pelo log:
+    // ReduzidoContaDebito, ReduzidoContaCredito,
+    // Complemento, Documento, Agente,
+    // RateiosCentroCusto[].CentroCusto + Natureza
     // ─────────────────────────────────────────────
     function montarTabelaRazao(payload) {
         const rows = [HEADERS_RAZAO];
@@ -456,18 +429,20 @@
         payload.forEach(lanc => {
             if (!lanc.Itens || lanc.Itens.length === 0) {
                 rows.push([lanc.Data || "", lanc.CodigoLote || "", lanc.Codigo || "",
-                    "", "", "", 0, "", "", "", "", ""]);
+                    "", "", 0, "", "", "", ""]);
                 return;
             }
 
             lanc.Itens.forEach(item => {
-                const valor = parseFloat(item.Valor || 0);
+                const valor      = parseFloat(item.Valor || 0);
+                const redDebito  = item.ReduzidoContaDebito  || 0;
+                const redCredito = item.ReduzidoContaCredito || 0;
 
-                // Histórico — Complemento é o campo correto
+                // Histórico
                 let hist = item.Complemento || "";
                 hist = hist.replace(/\u0000/g, "").trim();
 
-                // Documento fiscal — string simples
+                // Documento fiscal
                 const docFiscal = item.Documento || "";
 
                 // Agente
@@ -475,24 +450,19 @@
                             || item.Agente?.NomeFantasia
                             || item.Agente?.NomeRazao || "";
 
-                // Centro de Custo
-                let cc = "";
+                // Centro de Custo — vem com Natureza (Débito/Crédito) e dados completos
+                // Agrupa todos os CCs por natureza para associar à linha correta
+                const ccDebito  = [];
+                const ccCredito = [];
                 if (item.RateiosCentroCusto?.length > 0) {
-                    const r = item.RateiosCentroCusto[0];
-                    const c = r.CentroCusto || r;
-                    const red  = c.Reduzido || c.Codigo || "";
-                    const desc = c.Nome     || c.Descricao || c.Extenso || "";
-                    cc = red && desc ? `${red} - ${desc}` : String(red || desc || "");
-                }
-
-                // Projeto
-                let proj = "";
-                if (item.RateiosProjeto?.length > 0) {
-                    const r = item.RateiosProjeto[0];
-                    const p = r.Projeto || r;
-                    const red  = p.Reduzido || p.Codigo || "";
-                    const desc = p.Nome     || p.Descricao || p.Extenso || "";
-                    proj = red && desc ? `${red} - ${desc}` : String(red || desc || "");
+                    item.RateiosCentroCusto.forEach(r => {
+                        const c    = r.CentroCusto || r;
+                        const red  = c.Reduzido || c.Codigo || "";
+                        const desc = c.Descricao || c.Nome  || "";
+                        const txt  = red && desc ? `${red} - ${desc}` : String(red || desc || "");
+                        if (r.Natureza === "Débito")  ccDebito.push(txt);
+                        else                          ccCredito.push(txt);
+                    });
                 }
 
                 const base = [
@@ -502,31 +472,29 @@
                     docFiscal
                 ];
 
-                // ContaDebito e ContaCredito são objetos diretos no item
-                // Estrutura: { Reduzido, Extenso, Descricao, ... }
-                if (item.ContaDebito) {
-                    const cd = item.ContaDebito;
+                // Linha Débito
+                if (redDebito) {
                     rows.push([...base,
-                        cd.Extenso   || cd.Reduzido  || "",
-                        cd.Descricao || cd.Nome      || "",
-                        valor, "D", hist, cc, proj, agente
+                        redDebito,
+                        valor, "D", hist,
+                        ccDebito.join(" | ") || ccCredito.join(" | ") || "",
+                        agente
                     ]);
                 }
 
-                if (item.ContaCredito) {
-                    const cc2 = item.ContaCredito;
+                // Linha Crédito
+                if (redCredito) {
                     rows.push([...base,
-                        cc2.Extenso   || cc2.Reduzido  || "",
-                        cc2.Descricao || cc2.Nome      || "",
-                        valor, "C", hist, cc, proj, agente
+                        redCredito,
+                        valor, "C", hist,
+                        ccCredito.join(" | ") || ccDebito.join(" | ") || "",
+                        agente
                     ]);
                 }
 
-                if (!item.ContaDebito && !item.ContaCredito) {
-                    rows.push([...base,
-                        item.ReduzidoContaDebito || item.ReduzidoContaCredito || "VERIFICAR",
-                        "", valor, "", hist, cc, proj, agente
-                    ]);
+                // Fallback
+                if (!redDebito && !redCredito) {
+                    rows.push([...base, "VERIFICAR", valor, "", hist, "", agente]);
                 }
             });
         });
@@ -559,23 +527,19 @@
             if (sheet.isNullObject) sheet = context.workbook.worksheets.add(sheetName);
             else sheet.getUsedRange().clear();
             sheet.activate();
-
             const numLinhas = dados.length;
             const numCols   = dados[0].length;
             const range     = sheet.getRangeByIndexes(0, 0, numLinhas, numCols);
             range.values    = dados;
-
             if (colunaValor !== null && numLinhas > 1) {
                 const valorRange = sheet.getRangeByIndexes(1, colunaValor, numLinhas - 1, 1);
                 valorRange.numberFormat = Array(numLinhas - 1).fill(["#,##0.00"]);
             }
-
             const headerRange = sheet.getRangeByIndexes(0, 0, 1, numCols);
             headerRange.format.fill.color = "#0078d4";
             headerRange.format.font.color = "#ffffff";
             headerRange.format.font.bold  = true;
             headerRange.format.font.size  = 10;
-
             range.format.autofitColumns();
             await context.sync();
         });
@@ -609,7 +573,6 @@
             setStatus("✓ Template gerado na aba 'Template_Agentes'.", "sucesso");
         } catch (error) {
             setStatus(`Erro: ${error.message}`, "erro");
-            console.error("[LG CFO]", error);
         } finally {
             lockBtn("btn-template", false);
         }
@@ -624,12 +587,12 @@
             await Excel.run(async (context) => {
                 const sheet = context.workbook.worksheets.getItemOrNullObject("Template_Agentes");
                 await context.sync();
-                if (sheet.isNullObject) throw new Error("Aba 'Template_Agentes' não encontrada. Gere o template primeiro.");
+                if (sheet.isNullObject) throw new Error("Aba 'Template_Agentes' não encontrada.");
                 const usedRange = sheet.getUsedRange();
                 usedRange.load("values");
                 await context.sync();
                 const values = usedRange.values;
-                if (values.length < 2) throw new Error("Nenhum dado encontrado. Preencha ao menos uma linha.");
+                if (values.length < 2) throw new Error("Nenhum dado encontrado.");
                 const headers = values[0];
                 agentes = values.slice(1)
                     .filter(row => row.some(c => c !== "" && c !== null))
@@ -650,8 +613,7 @@
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const result = await res.json();
             if (!result.success) throw new Error(result.error || "Erro no servidor.");
-            const ok   = result.incluidos || 0;
-            const fail = result.erros     || 0;
+            const ok = result.incluidos || 0, fail = result.erros || 0;
             await Excel.run(async (context) => {
                 const sheet     = context.workbook.worksheets.getItem("Template_Agentes");
                 const colResult = sheet.getRangeByIndexes(0, 9, 1, 1);
@@ -666,12 +628,11 @@
                 await context.sync();
             });
             setProgress(100, "Concluído");
-            setStatus(`✓ ${ok} incluído(s) | ${fail} erro(s). Veja STATUS_IMPORTACAO.`, ok > 0 ? "sucesso" : "erro");
+            setStatus(`✓ ${ok} incluído(s) | ${fail} erro(s).`, ok > 0 ? "sucesso" : "erro");
             setTimeout(() => setProgress(null), 1500);
         } catch (error) {
             setStatus(`Erro: ${error.message}`, "erro");
             setProgress(null);
-            console.error("[LG CFO]", error);
         } finally {
             lockBtn("btn-enviar", false);
         }
